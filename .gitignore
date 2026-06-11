@@ -1,0 +1,13 @@
+﻿# Ignore all JSON files
+*.json
+
+# Ignore the Minecraft runtime directory
+.minecraft/
+
+# Ignore instances directory (for launcher instances)
+instances/
+
+# Ignore virtual environment
+.venv/
+
+skins/
