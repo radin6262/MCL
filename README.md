@@ -1,6 +1,6 @@
-# MCL
+# MCL - A Minecraft Launcher
 
-A simple Minecraft launcher.
+Python isn't Java Man
 
 ## Features
 
