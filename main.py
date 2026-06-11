@@ -1073,22 +1073,23 @@ class MinecraftLauncherGUI(QMainWindow):
         target = self.authlib_path_edit.text().strip()
         if not target:
             target = "authlib-injector.jar"
-            self.authlib_path_edit.setText(target)
+
+        # Convert to absolute path
+        target = os.path.abspath(target)
+        self.authlib_path_edit.setText(target)
 
         url = ("https://github.com/yushijinhun/authlib-injector/releases/download/"
                "v1.2.7/authlib-injector-1.2.7.jar")
 
-        self.log("[INFO] Downloading authlib‑injector v1.2.7 ...")
+        self.log("[INFO] Downloading authlib-injector v1.2.7 ...")
         self.log(f"[INFO] Target: {target}")
 
-        # Show progress bar and disable button
         self.authlib_progress_bar.setVisible(True)
         self.authlib_progress_bar.setValue(0)
         self.btn_install_authlib.setEnabled(False)
         self.btn_install_authlib.setText("Downloading…")
         QApplication.processEvents()
 
-        # Start download thread
         self.authlib_dl_thread = AuthlibDownloadThread(url, target)
         self.authlib_dl_thread.progress_signal.connect(self.authlib_progress_bar.setValue)
         self.authlib_dl_thread.finished_signal.connect(self._on_authlib_install_finished)
@@ -1099,11 +1100,14 @@ class MinecraftLauncherGUI(QMainWindow):
         self.authlib_progress_bar.setVisible(False)
         self.btn_install_authlib.setEnabled(True)
         self.btn_install_authlib.setText("⬇ Install authlib")
-        target = self.authlib_path_edit.text().strip()
+
+        target = os.path.abspath(self.authlib_path_edit.text().strip())
+        self.authlib_path_edit.setText(target)
+
         self.settings.set("authlib_injector_path", target)
-        # Auto‑enable the checkbox
+
         self.authlib_enabled_check.setChecked(True)
-        self.log(f"[SUCCESS] authlib‑injector saved to {target}")
+        self.log(f"[SUCCESS] authlib-injector saved to {target}")
 
     def _on_authlib_install_error(self, error_msg):
         self.authlib_progress_bar.setVisible(False)
