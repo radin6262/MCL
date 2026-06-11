@@ -1,6 +1,6 @@
-# Minecraft Launcher
+# MCL
 
-A custom Minecraft launcher with offline authentication support and skin caching management.
+A Simple Minecraft launcher.
 
 ## Features
 
@@ -12,16 +12,16 @@ A custom Minecraft launcher with offline authentication support and skin caching
 
 ## Prerequisites
 
-- Python 3.8 or higher
-- Java 8 or higher (for Minecraft)
-- Git (for version control)
+- Python 3.8 or higher (ideally python **3.14**)
+- Java 25 or 21 or 17 (Depends on which Minecraft Version you run)
 
 ## Installation
+- Before Installation: Its recommended to use a Venv
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd minecraft-launcher
+git clone https://github.com/radin6262/MCL.git
+cd MCL
 
 2. Install dependencies:
 bash
@@ -33,7 +33,7 @@ pip install -r requirements.txt
 
 ### Basic Launch
 bash
-python launcher.py
+python main.py
 
 ### Command Line Options
 
@@ -45,19 +45,15 @@ python launcher.py
 ### Skin Cache Management
 The launcher automatically handles skin cache clearing to prevent persistent skin issues. This is necessary because Minecraft 1.20+ caches skins locally at `.minecraft/assets/skins/<uuid>/`.
 
-## Project Structure
+## Raw Project Structure(Before installing a Minecraft version)
 
 
 .
-├── launcher.py              # Main launcher application
-├── auth.py                  # Authentication handlers
-├── game_launcher.py         # Minecraft process management
-├── config.json              # Configuration file (ignored)
-├── player.json              # Player data (ignored)
-├── offline_account.json     # Account cache (ignored)
-├── .minecraft/              # Minecraft runtime (ignored)
-├── instances/               # Version instances (ignored)
-├── .venv/                   # Python virtual environment (ignored)
+├── main.py              # Main launcher application
+├── base.py and offline.py                  # Authentication handlers
+├── launcher.py         # Minecraft process management
+├── skin.py         # Yggdrasil and skin management server/service
+├── requirements.txt         # Python Pip requirements
 └── README.md                # This file
 
 ## Configuration
@@ -66,10 +62,7 @@ The launcher automatically handles skin cache clearing to prevent persistent ski
 The launcher uses `player.json` for player data and `offline_account.json` for account caching. These files are automatically generated on first run.
 
 ### Java Settings
-Configure Java path and arguments in the launcher settings or via command line:
-- `-Xmx4096M`: Default memory allocation (4GB)
-- `-XX:+UseG1GC`: Garbage collector optimization
-- `-Dfml.ignoreInvalidMinecraftCertificates=true`: Certificate validation bypass
+You can configure custom java args from settings section(just make sure you know what your doing)
 
 ## Troubleshooting
 
@@ -77,40 +70,28 @@ Configure Java path and arguments in the launcher settings or via command line:
 
 1. **Skin Persistence**: If skins aren't updating, manually delete `.minecraft/assets/skins/` before launching.
 
-2. **Java Errors**: Ensure Java 8+ is installed and accessible in PATH.
+2. **Java Errors**: Ensure Java 8+ is installed and accessible in PATH(if isn't go to settings>Java and select your java executable).
 
 3. **Authentication Failures**: Delete `offline_account.json` and `player.json` to reset authentication.
 
-4. **Launcher Crashes After Game Exit**: This is typically a threading/GUI issue. Ensure GUI updates happen on the main thread.
+4. **Launcher Crashes After Game Exit**: This is a Known bug and is gonna be fixed asap.
 
 ### Debug Mode
-Enable debug logging by setting `DEBUG=True` in the launcher configuration.
+authlib-injector (the system we use to inject our skins and etc) has debug to true by default
 
 ## Development
 
 ### Setting Up Development Environment
+- We recommend you using vs code or pycharm to configure and run venv
 bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 
-### Running Tests
-bash
-python -m pytest tests/
 
-### Code Style
-This project uses:
-- Black for code formatting
-- Flake8 for linting
-- MyPy for type checking
 
 ## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- Coming soon
 
 ## License
 
@@ -128,4 +109,4 @@ For issues and feature requests, please use the GitHub Issues page.
 
 ---
 
-**Note**: This launcher is for educational purposes. Always respect Mojang's EULA and use official authentication methods when possible.
+**Note**: This launcher is not connected/owned in anyway by microsoft/mojang
