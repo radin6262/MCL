@@ -13,3 +13,5 @@ instances/
 skins/
 
 authlib-injector.jar
+
+.idea/
