@@ -82,6 +82,31 @@ The launcher uses `player.json` for player data and `offline_account.json` for a
 
 You can configure custom Java arguments from the Settings section (make sure you know what you're doing).
 
+## In-App Configuration
+
+Before launching Minecraft for the first time, you should configure your account and authentication settings.
+
+### 1. Configure Your Account
+
+1. Open the **Account Settings** tab.
+2. Edit your desired Minecraft username.
+3. Click the **Generate UUID** button to create a UUID for your account.
+
+### 2. Install Authlib
+
+1. Open the **Settings** tab.
+2. Navigate to the **Authlib** section.
+3. Click **Install** and wait for the installation to complete.
+
+### 3. Import a Skin
+
+1. Open the **Skin** tab.
+2. Click **Import Skin**.
+3. Select a valid Minecraft skin PNG file.
+4. Save or apply the skin if prompted.
+
+After completing these steps, your launcher is ready to start Minecraft with custom authentication and skin support.
+
 ## Troubleshooting
 
 ### Common Issues
