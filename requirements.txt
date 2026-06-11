@@ -1,0 +1,4 @@
+pyside
+socks
+threading
+cryptography
