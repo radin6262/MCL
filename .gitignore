@@ -11,3 +11,5 @@ instances/
 .venv/
 
 skins/
+
+authlib-injector.jar
