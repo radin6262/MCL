@@ -1,4 +1,4 @@
-pyside
+pyside6
 socks
 threading
 cryptography
