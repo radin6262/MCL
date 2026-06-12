@@ -43,6 +43,7 @@ pip install -r requirements.txt
 ## Windows Installation
 
 > Note: Library CryptoGraphy used by some other py libs was the culprit of this issue. It is now patched... Probably...
+
 1. Go to the github releases section.
 2. find the **latest** release
 3. find the files attached and install the exe file
@@ -148,13 +149,14 @@ After completing these steps, your launcher is ready to start Minecraft with cus
 
 `authlib-injector` (the system used to inject skins, player data, etc.) has debug mode enabled by default.
 
-
-### Defender
+---
+## Defender
 Windows Defender flags MCL's custom skin server(that is running on your device when you launch the game) due to using network and currently i have made a patch(an unused rsa generator was causing this) but windows defender may still flag the skin server... and well i as the main developer can't do something about it.
 well i can get a cert but that would cost 300-500$ a month.
 
+> Note: Library CryptoGraphy used by some other py libs was the culprit of this issue. It is now patched... Probably...
 
-
+---
 ## Development
 
 ### Setting Up the Development Environment
