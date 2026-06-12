@@ -154,33 +154,6 @@ class GameLauncher:
         java_ver = self._get_java_version()
         args: List[str] = []
 
-        # ──────────────────────────────────────────────────────────
-        # PROXY ARGS – forward all HTTP/HTTPS traffic through
-        # the local skin server (port 9089 by default).
-        # Minecraft will use the proxy to resolve sessionserver.
-        # ──────────────────────────────────────────────────────────
-        proxy_host = "127.0.0.1"
-        proxy_port = "9089"
-        args.append(f"-Dhttp.proxyHost={proxy_host}")
-        args.append(f"-Dhttp.proxyPort={proxy_port}")
-        args.append(f"-Dhttps.proxyHost={proxy_host}")
-        args.append(f"-Dhttps.proxyPort={proxy_port}")
-        args.append("-Dhttp.nonProxyHosts=localhost|127.*|[::1]")
-        args.append("-Dhttps.nonProxyHosts=localhost|127.*|[::1]")
-        proxy_host = "127.0.0.1"
-        proxy_port = "9089"
-        args.append(f"-Dhttp.proxyHost={proxy_host}")
-        args.append(f"-Dhttp.proxyPort={proxy_port}")
-        args.append(f"-Dhttps.proxyHost={proxy_host}")
-        args.append(f"-Dhttps.proxyPort={proxy_port}")
-
-        # SOCKS proxy (as backup)
-        args.append(f"-DsocksProxyHost={proxy_host}")
-        args.append(f"-DsocksProxyPort={proxy_port}")
-
-        # Disable proxy for localhost
-        args.append("-Dhttp.nonProxyHosts=localhost|127.*|[::1]")
-        args.append("-Dhttps.nonProxyHosts=localhost|127.*|[::1]")
         # Any user-supplied extra java_args
         for arg in self.java_args:
             args.append(arg)

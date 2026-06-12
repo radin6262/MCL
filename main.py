@@ -638,7 +638,7 @@ class MinecraftLauncherGUI(QMainWindow):
         title.setStyleSheet("font-size: 24px; color: #ffffff; margin-bottom: 20px;")
         layout.addWidget(title)
         warning_label = QLabel(
-            "Warning:\n- Changing UUID may mess with your server data...\n- Changing UUID may also mess with skins...")
+            "Warning:\n- Changing UUID may mess with your server data...\n- Changing UUID may also mess with skins...\n- After configuring your account go and install authlib from the settings and set a skin")
         warning_label.setStyleSheet(
             "background-color: #3a3a1a; border: 1px solid #ffaa00; border-radius: 6px; padding: 12px; color: #ffcc00; font-weight: bold; font-size: 13px;")
         warning_label.setWordWrap(True)
@@ -769,7 +769,7 @@ class MinecraftLauncherGUI(QMainWindow):
                 self.skin_preview.setText("No skin loaded")
                 self.btn_remove_skin.setEnabled(False)
         else:
-            self.skin_uuid_display.setText("(no UUID in player.json)")
+            self.skin_uuid_display.setText("(no UUID in player.json / if a uuid is set Restart This Application to apply it)")
             self.skin_status.setText("⚠ UUID not set")
             self.skin_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffaa00;")
             self.skin_preview.clear()
@@ -1274,6 +1274,9 @@ class MinecraftLauncherGUI(QMainWindow):
             self.log("[WARN] skin.py not found – continuing without it.")
         except Exception as e:
             self.log(f"[WARN] Could not start skin.py: {e}")
+
+        self.log(f"[DEBUG] Waiting 1 seconds to let skin server start")
+        time.sleep(1)
 
         # delete mc skin cache
         skd = os.path.join(os.getcwd(), '.minecraft', 'assets', 'skins')

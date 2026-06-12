@@ -53,6 +53,7 @@ pip install -r requirements.txt
 7. If windows defender flags the app as potentially unwanted please go to you AV(antivirus) settings and and select allow on device then click apply
 8. learn more on why windows security/defender flags this on some device [click me](https://github.com/radin6262/MCL#defender)
 
+- You'll still need to configure this
 ## Usage
 
 ### Basic Launch
