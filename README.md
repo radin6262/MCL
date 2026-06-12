@@ -1,7 +1,6 @@
 # MCL - A Minecraft Launcher
 
-Python isn't Java
-<br>Qt isn't OpenGL
+Python is not Java
 
 ## Features
 
