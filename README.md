@@ -50,7 +50,7 @@ pip install -r requirements.txt
 5. create a folder called MCL(not required but the launcher will generate some files like minecraft assets or settings)
 6. Run MCL (it will be slow when you run the app for the **first** time)
 7. If windows defender flags the app as potentially unwanted please go to you AV(antivirus) settings and and select allow on device then click apply
-8. learn more on why windows security/defender flags this on some device [click me](https://github.com/radin6262/MCL#Defender)
+8. learn more on why windows security/defender flags this on some device [click me](https://github.com/radin6262/MCL#defender)
 
 ## Usage
 
