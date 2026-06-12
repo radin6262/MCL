@@ -42,6 +42,7 @@ pip install -r requirements.txt
 
 ## Windows Installation
 
+> Note: Library CryptoGraphy used by some other py libs was the culprit of this issue. It is now patched... Probably...
 1. Go to the github releases section.
 2. find the **latest** release
 3. find the files attached and install the exe file
