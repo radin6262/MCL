@@ -175,7 +175,7 @@ class YggdrasilHandler(BaseHTTPRequestHandler):
                     "profileName": username,
                     "textures": {
                         "SKIN": {
-                            "url": f"http://127.0.0.1:25585/skins/{uuid}.png?t={cache_buster}"
+                            "url": f"http://127.0.0.1:58432/skins/{uuid}.png?t={cache_buster}"
                         }
                     }
                 }
@@ -224,7 +224,7 @@ class YggdrasilHandler(BaseHTTPRequestHandler):
                 }
 
             if user_uuid and server_id == STORAGE["server_id"]:
-                skin_url = f"http://{self.headers.get('Host', 'localhost:25585')}/skins/{user_uuid}.png"
+                skin_url = f"http://{self.headers.get('Host', 'localhost:58432')}/skins/{user_uuid}.png"
                 textures = {
                     "timestamp": int(time.time() * 1000),
                     "profileId": user_uuid,
@@ -339,7 +339,7 @@ class YggdrasilHandler(BaseHTTPRequestHandler):
                 new_token = generate_uuid()
                 found_user["access_token"] = new_token
 
-                skin_url = f"http://{self.headers.get('Host', 'localhost:25585')}/skins/{found_user['uuid']}.png"
+                skin_url = f"http://{self.headers.get('Host', 'localhost:58432')}/skins/{found_user['uuid']}.png"
                 textures = {
                     "timestamp": int(time.time() * 1000),
                     "profileId": found_user["uuid"],
@@ -406,9 +406,9 @@ class YggdrasilHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    server = HTTPServer(("0.0.0.0", 25585), YggdrasilHandler)
-    print("Yggdrasil + skin server running on http://localhost:25585")
-    print("Set authlib-injector URL to: http://localhost:25585")
+    server = HTTPServer(("0.0.0.0", 58432), YggdrasilHandler)
+    print("Yggdrasil + skin server running on http://localhost:58432")
+    print("Set authlib-injector URL to: http://localhost:58432")
     print("Place skin PNGs in ./skins/<uuid>.png")
     print("Create player.json (username→uuid mapping)")
     print("Press Ctrl+C to stop.")

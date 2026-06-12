@@ -64,7 +64,7 @@ class Settings:
             "ram_mb": 2048,
             "java_args": "",
             "authlib_injector_path": "authlib-injector.jar",
-            "authlib_injector_url": "http://localhost:25585",
+            "authlib_injector_url": "http://localhost:58432",
             "authlib_enabled": True,
         }
         self.load()
@@ -982,7 +982,7 @@ class MinecraftLauncherGUI(QMainWindow):
         url_form = QFormLayout()
         url_form.setSpacing(8)
         url_row = QHBoxLayout()
-        self.authlib_url_edit = QLineEdit(self.settings.get("authlib_injector_url", "http://localhost:25585"))
+        self.authlib_url_edit = QLineEdit(self.settings.get("authlib_injector_url", "http://localhost:58432"))
         self.authlib_url_edit.setMinimumHeight(35)
         self.authlib_url_edit.textChanged.connect(lambda t: self.settings.set("authlib_injector_url", t))
         url_row.addWidget(self.authlib_url_edit, 1)
@@ -1257,7 +1257,7 @@ class MinecraftLauncherGUI(QMainWindow):
         authlib_enabled = self.settings.get("authlib_enabled", True)
         if authlib_enabled:
             authlib_path = self.settings.get("authlib_injector_path", "authlib-injector.jar")
-            authlib_url = self.settings.get("authlib_injector_url", "http://localhost:25585")
+            authlib_url = self.settings.get("authlib_injector_url", "http://localhost:58432")
             # Check if file exists, show warning if not
             if not Path(authlib_path).exists():
                 self.log(f"[WARNING] authlib‑injector.jar not found at: {authlib_path}")
