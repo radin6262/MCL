@@ -12,8 +12,6 @@ instances/
 
 skins/
 
-authlib-injector.jar
-
 .idea/
 
 dist/
@@ -23,3 +21,6 @@ dist/
 .idea/
 
 __pycache__/
+
+authlib-injector.jar
+
