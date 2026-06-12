@@ -10,26 +10,8 @@ import mimetypes
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-# ----------------------------------------------------------------------
-# Generate keypair (RSA 2048) – still generated but unused if no signing
-# ----------------------------------------------------------------------
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
 import base64
 
-_private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=2048,
-    backend=default_backend()
-)
-_public_key = _private_key.public_key()
-
-_public_der = _public_key.public_bytes(
-    encoding=serialization.Encoding.DER,
-    format=serialization.PublicFormat.SubjectPublicKeyInfo
-)
-MOJANG_PUBLIC_KEY_BASE64 = base64.b64encode(_public_der).decode('ascii')
 
 # ----------------------------------------------------------------------
 # Load player.json – maps username → UUID

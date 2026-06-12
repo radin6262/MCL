@@ -2,6 +2,8 @@
 
 Python is not Java
 
+---
+
 ## Features
 
 * **Offline Authentication**: Supports offline/Yggdrasil authentication without requiring Mojang servers.
@@ -9,18 +11,18 @@ Python is not Java
 * **Multi-Version Support**: Launch different Minecraft versions with isolated instances.
 * **Custom Java Arguments**: Configure memory allocation and other JVM parameters.
 * **Real-time Logging**: View Minecraft output in real-time within the launcher interface.
-
+---
 ## Prerequisites
 
 * Python 3.8 or higher (ideally **Python 3.14**)
 * Java 25, 21, or 17 (depends on the Minecraft version you run)
-
-## Installation
+---
+## Installation From Source
 
 > Before installation, it is recommended to use a virtual environment (venv).
-
+---
 > We Do Not recommend using VS Code or PyCharm Or any IDE with an integrated shell.
-
+---
 1. Clone the repository:
 
 ```bash
@@ -35,6 +37,19 @@ pip install -r requirements.txt
 ```
 
 3. Launcher Configuration Will be done in the application
+
+---
+
+## Windows Installation
+
+1. Go to the github releases section.
+2. find the **latest** release
+3. find the files attached and install the exe file
+4. Go the directory you want the launcher to be installed
+5. create a folder called MCL(not required but the launcher will generate some files like minecraft assets or settings)
+6. Run MCL (it will be slow when you run the app for the **first** time)
+7. If windows defender flags the app as potentially unwanted please go to you AV(antivirus) settings and and select allow on device then click apply
+8. learn more on why windows security/defender flags this on some device (click me)[https://github.com/radin6262/MCL#Defender]
 
 ## Usage
 
@@ -86,6 +101,8 @@ Before launching Minecraft for the first time, you should configure your account
 2. Edit your desired Minecraft username.
 3. Click the **Generate Random UUID** button to create a UUID for your account.
 
+- Restart The Application to apply changes
+
 ### 2. Install Authlib(for skin management)
 
 1. Open the **Settings** tab.
@@ -114,6 +131,13 @@ After completing these steps, your launcher is ready to start Minecraft with cus
 ### Debug Mode
 
 `authlib-injector` (the system used to inject skins, player data, etc.) has debug mode enabled by default.
+
+
+### Defender
+Windows Defender flags MCL's custom skin server(that is running on your device when you launch the game) due to using network and currently i have made a patch(an unused rsa generator was causing this) but windows defender may still flag the skin server... and well i as the main developer can't do something about it.
+well i can get a cert but that would cost 300-500$ a month.
+
+
 
 ## Development
 
