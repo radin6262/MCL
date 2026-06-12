@@ -119,7 +119,7 @@ After completing these steps, your launcher is ready to start Minecraft with cus
 
 ### Setting Up the Development Environment
 
-We Do Not recommend using VS Code or PyCharm.
+We Recommend You Use VsCode or Pycharm but for running the application we recommend you use the windows powershell or cmd
 
 ```bash
 python -m venv .venv
