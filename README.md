@@ -119,6 +119,19 @@ Before launching Minecraft for the first time, you should configure your account
 
 After completing these steps, your launcher is ready to start Minecraft with custom authentication and skin support.
 
+## Launching the Game
+
+1. Select a version
+2. Click download to download the version
+3. after downloading finished click launch to launch the game
+4. if the game crashed re-download it using the button
+5. if that fails too reach out to the community or submit an issue at the github issues page
+> *Warning*: if a shell gets launched don't worry its the java shell we use it to launch the game but for some issues it shows up. but its not supposed to. this is a known bug and will be fix as soon as possibile(a long time later **:D**)
+
+
+
+
+
 ## Troubleshooting
 
 ### Common Issues
