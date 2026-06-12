@@ -119,6 +119,8 @@ Before launching Minecraft for the first time, you should configure your account
 
 After completing these steps, your launcher is ready to start Minecraft with custom authentication and skin support.
 
+---
+
 ## Launching the Game
 
 1. Select a version
