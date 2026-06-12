@@ -5,9 +5,11 @@ import sys
 import json
 import platform
 import threading
+import time
+from asyncio import start_server
 
+import skin
 import requests
-import subprocess
 import uuid as py_uuid
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -19,9 +21,9 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QSlider, QScrollArea, QFrame, QMessageBox)
 from PySide6.QtCore import Qt, QThread, Signal, QByteArray, QSize
 from PySide6.QtGui import QFont, QIcon, QPixmap
-
 from offline import OfflineAuthProvider
 from launcher import GameLauncher
+
 
 # Inline SVGs (unchanged – only what we need)
 PLAY_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
@@ -1212,6 +1214,20 @@ class MinecraftLauncherGUI(QMainWindow):
         self.file_progress_label.setText("Download finished.")
         self.check_version_status(self.ver_combo.currentText())
 
+    def start_skin_server(self):
+        """Start skin.py in a background thread"""
+
+        def run_skin():
+            import skin
+            skin.main()  # This will block, but only in this thread
+
+        skin_thread = threading.Thread(target=run_skin, daemon=True)
+        skin_thread.start()
+
+        # Wait a moment for server to start
+        time.sleep(2)
+        return skin_thread
+
     def launch_game(self):
         username = self.user_input.text().strip()
         version = self.ver_combo.currentText().strip()
@@ -1253,10 +1269,7 @@ class MinecraftLauncherGUI(QMainWindow):
 
         try:
             self.log("[INFO] Starting skin.py (Yggdrasil auth server)...")
-            self.skin_process = subprocess.Popen(
-                [sys.executable, "skin.py"],
-                # No stdout capture = output goes to console, not to launcher
-            )
+            self.start_skin_server()
         except FileNotFoundError:
             self.log("[WARN] skin.py not found – continuing without it.")
         except Exception as e:

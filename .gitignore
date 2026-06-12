@@ -15,3 +15,11 @@ skins/
 authlib-injector.jar
 
 .idea/
+
+dist/
+
+.git/
+
+.idea/
+
+__pycache__/

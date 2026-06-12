@@ -1,0 +1,1 @@
+nuitka --script=main.py --standalone --onefile --enable-plugin=pyside6 --windows-console-mode=disable --include-module=base,offline,launcher,skin --include-package=requests --output-dir=dist --assume-yes-for-downloads
