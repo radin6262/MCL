@@ -1283,7 +1283,7 @@ class MinecraftLauncherGUI(QMainWindow):
                 shutil.rmtree(skd)
                 self.log(f"[DEBUG] Successfully deleted: {skd}")
             else:
-                self.log(f"[Warn] Directory does not exist (nothing to delete): {skd}")
+                self.log(f"[DEBUG] No skin cache to delete. This isn't an Error. You can safely continue.: {skd}")
         except PermissionError:
             self.log(f"[Fail] Permission denied: cannot delete {skd}. Try running as administrator.")
         except Exception as e:

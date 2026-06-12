@@ -368,6 +368,8 @@ class GameLauncher:
             text=True,
             bufsize=1,
             encoding='utf-8',
-            errors='replace'
+            errors='replace',
+            startupinfo=subprocess.STARTUPINFO(),
+            creationflags=subprocess.CREATE_NO_WINDOW,
         )
         return process
