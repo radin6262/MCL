@@ -1,6 +1,7 @@
 # MCL - A Minecraft Launcher
 
-Python isn't Java Man
+Python isn't Java
+<br>Qt isn't OpenGL
 
 ## Features
 
@@ -19,6 +20,8 @@ Python isn't Java Man
 
 > Before installation, it is recommended to use a virtual environment (venv).
 
+> We Do Not recommend using VS Code or PyCharm Or any IDE with an integrated shell.
+
 1. Clone the repository:
 
 ```bash
@@ -32,7 +35,7 @@ cd MCL
 pip install -r requirements.txt
 ```
 
-3. Configure your launcher settings in `config.json` (if applicable).
+3. Launcher Configuration Will be done in the application
 
 ## Usage
 
@@ -42,21 +45,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### Command Line Options
-
-```text
---username <name>      Specify Minecraft username
---version <version>    Specify Minecraft version (default: latest)
---ram <mb>             Set RAM allocation in MB (default: 4096)
---fullscreen           Launch in fullscreen mode
-```
 
 ### Skin Cache Management
 
 The launcher automatically handles skin cache clearing to prevent persistent skin issues. This is necessary because Minecraft 1.20+ caches skins locally at:
 
 ```text
-.minecraft/assets/skins/<uuid>/
+.minecraft/assets/skins/
 ```
 
 ## Project Structure
@@ -90,20 +85,20 @@ Before launching Minecraft for the first time, you should configure your account
 
 1. Open the **Account Settings** tab.
 2. Edit your desired Minecraft username.
-3. Click the **Generate UUID** button to create a UUID for your account.
+3. Click the **Generate Random UUID** button to create a UUID for your account.
 
-### 2. Install Authlib
+### 2. Install Authlib(for skin management)
 
 1. Open the **Settings** tab.
 2. Navigate to the **Authlib** section.
-3. Click **Install** and wait for the installation to complete.
+3. Click **Install Authlib** and wait for the installation to complete.
 
 ### 3. Import a Skin
 
 1. Open the **Skin** tab.
 2. Click **Import Skin**.
 3. Select a valid Minecraft skin PNG file.
-4. Save or apply the skin if prompted.
+4. If skin is vaild you will be prompted by a success msgbox
 
 After completing these steps, your launcher is ready to start Minecraft with custom authentication and skin support.
 
@@ -115,24 +110,21 @@ After completing these steps, your launcher is ready to start Minecraft with cus
 2. **Java Errors**: Ensure Java is installed and accessible in your PATH. If not, go to **Settings → Java** and select your Java executable.
 3. **Authentication Failures**: Delete `offline_account.json` and `player.json` to reset authentication.
 4. **Launcher Crashes After Game Exit**: This is a known bug and will be fixed as soon as possible.
+5. **Launcher Crashes Randomly Or After Game Launch**: This Issue isn't from the application. if you are running this application on pycharm or vscode this will happen(resource fighting)
 
 ### Debug Mode
 
-`authlib-injector` (the system used to inject skins, capes, etc.) has debug mode enabled by default.
+`authlib-injector` (the system used to inject skins, player data, etc.) has debug mode enabled by default.
 
 ## Development
 
 ### Setting Up the Development Environment
 
-We recommend using VS Code or PyCharm.
+We Do Not recommend using VS Code or PyCharm.
 
 ```bash
 python -m venv .venv
 
-# Linux/macOS
-source .venv/bin/activate
-
-# Windows
 .venv\Scripts\activate
 
 pip install -r requirements-dev.txt
