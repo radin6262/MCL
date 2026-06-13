@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 import json
 import requests
@@ -253,8 +253,34 @@ class Updater:
 
     def __init__(self, parent=None):
         self.parent = parent
-        self.current_version = "1.0.0"  # Change this to your actual version
-        self.version_url = "https://raw.githubusercontent.com/yourusername/yourrepo/main/version.json"
+        self.current_version = self._get_local_version()
+        self.version_url = "https://raw.githubusercontent.com/radin6262/MCL/main/version.json"
+
+    def _get_local_version(self):
+        """
+        Read current version from a plain text file named 'version'
+        (no extension) in the application directory.
+        """
+        try:
+            # Determine base path (works for both script and frozen exe)
+            if hasattr(sys, 'frozen'):
+                base_path = Path(sys.executable).parent
+            else:
+                base_path = Path(__file__).parent
+
+            version_file = base_path / "version"  # Plain text file, no .json extension
+            if version_file.exists():
+                with open(version_file, 'r', encoding='utf-8') as f:
+                    version = f.read().strip()
+                    if version:  # Ensure it's not empty
+                        print(f"Local version: {version}")
+                        return version
+            else:
+                print(f"Local version file not found at {version_file}, using default 1.0.0")
+        except Exception as e:
+            print(f"Error reading local version file: {e}")
+
+        return "1.0.0"  # Fallback default
 
     def check_for_updates(self, silent=False):
         """Check for updates and show dialog if found"""

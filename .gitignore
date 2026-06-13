@@ -2,6 +2,8 @@
 player.json
 offline_account.json
 settings.json
+# Ignore Local Version
+version
 
 # Ignore the Minecraft runtime directory
 .minecraft/
