@@ -31,13 +31,25 @@ class UpdateChecker(QThread):
     def run(self):
         try:
             self.progress.emit("Checking for updates...")
-
-            # Fetch version info
+            # fetch version info
             response = requests.get(self.version_url, timeout=10)
             response.raise_for_status()
 
-            latest_info = response.json()
+            # ---- BULLETPROOF BOM HANDLING ----
+            try:
+                # 1. Try direct .json() – handles correct encoding automatically
+                latest_info = response.json()
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # 2. Decode with utf-8-sig to strip BOM, then clean aggressively
+                content = response.content.decode('utf-8-sig', errors='ignore')
+                # Remove any leftover BOM character and null bytes
+                content = content.strip().replace('\ufeff', '').replace('\x00', '')
+                latest_info = json.loads(content)
+            # ---------------------------------
+
             latest_version = latest_info.get("version")
+            if not latest_version:
+                raise ValueError("Missing 'version' key in update JSON")
 
             if self.is_newer_version(latest_version):
                 self.update_found.emit(latest_info)
@@ -45,6 +57,9 @@ class UpdateChecker(QThread):
                 self.no_update.emit()
 
         except Exception as e:
+            # Debug info in console
+            if 'response' in dir() and hasattr(response, 'text'):
+                print(f"BOM DEBUG – raw response: {repr(response.text[:300])}")
             self.error.emit(f"Failed to check for updates: {str(e)}")
 
     def is_newer_version(self, latest_version):
@@ -270,11 +285,16 @@ class Updater:
 
             version_file = base_path / "version"  # Plain text file, no .json extension
             if version_file.exists():
-                with open(version_file, 'r', encoding='utf-8') as f:
-                    version = f.read().strip()
-                    if version:  # Ensure it's not empty
-                        print(f"Local version: {version}")
-                        return version
+                # Read as binary to handle BOM properly
+                with open(version_file, 'rb') as f:
+                    raw = f.read()
+                # Strip UTF-8 BOM if present
+                if raw.startswith(b'\xef\xbb\xbf'):
+                    raw = raw[3:]
+                version = raw.decode('utf-8', errors='ignore').strip()
+                if version:
+                    print(f"Local version: {version}")
+                    return version
             else:
                 print(f"Local version file not found at {version_file}, using default 1.0.0")
         except Exception as e:
@@ -297,7 +317,7 @@ class Updater:
 
             spinner = QLabel("⏳")
             spinner.setAlignment(Qt.AlignCenter)
-            spinner.setStyleSheet("font-size: IIIpx;")
+            spinner.setStyleSheet("font-size: 48px;")
             layout.addWidget(spinner)
 
             self.checking_dialog.setLayout(layout)
