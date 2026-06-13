@@ -1,5 +1,7 @@
-﻿# Ignore all JSON files
-*.json
+﻿# Ignore some JSON files
+player.json
+offline_account.json
+settings.json
 
 # Ignore the Minecraft runtime directory
 .minecraft/
