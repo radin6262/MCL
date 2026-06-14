@@ -1,28 +1,29 @@
 # MCL - A Minecraft Launcher
 
-Python is not Java
+Python is not Java.
 
 ---
 
 ## Features
 
-* **Offline Authentication**: Supports offline/Yggdrasil authentication without requiring Mojang servers.
-* **Skin Cache Management**: Automatically clears skin cache to prevent persistent skin issues in Minecraft 1.20+.
+* **Offline Authentication**: Supports offline authentication without requiring Mojang servers.
 * **Multi-Version Support**: Launch different Minecraft versions with isolated instances.
 * **Custom Java Arguments**: Configure memory allocation and other JVM parameters.
-* **Real-time Logging**: View Minecraft output in real-time within the launcher interface.
+* **Real-Time Logging**: View Minecraft output directly from the launcher interface.
+
 ---
+
 ## Prerequisites
 
-* Python 3.8 or higher (ideally **Python 3.14**)
-* Java 25, 21, or 17 (depends on the Minecraft version you run)
+* Python 3.8 or higher (Python 3.14 recommended)
+* Java 17, 21, or 25 (depending on the Minecraft version you run)
+
 ---
+
 ## Installation From Source
 
-> Before installation, it is recommended to use a virtual environment (venv).
----
-> We Do Not recommend using VS Code or PyCharm Or any IDE with an integrated shell.
----
+> It is recommended to use a virtual environment (venv).
+
 1. Clone the repository:
 
 ```bash
@@ -36,24 +37,23 @@ cd MCL
 pip install -r requirements.txt
 ```
 
-3. Launcher Configuration Will be done in the application
+3. Launcher configuration is handled inside the application.
 
 ---
 
 ## Windows Installation
 
-> Note: Library CryptoGraphy used by some other py libs was the culprit of this issue. It is now patched... Probably...
+1. Go to the GitHub Releases page.
+2. Download the latest release.
+3. Run the installer or executable.
+4. Choose a directory for MCL.
+5. (Optional) Create a folder named `MCL` to keep launcher files organized.
+6. Launch MCL.
 
-1. Go to the github releases section.
-2. find the **latest** release
-3. find the files attached and install the exe file
-4. Go the directory you want the launcher to be installed
-5. create a folder called MCL(not required but the launcher will generate some files like minecraft assets or settings)
-6. Run MCL (it will be slow when you run the app for the **first** time)
-7. If windows defender flags the app as potentially unwanted please go to you AV(antivirus) settings and and select allow on device then click apply
-8. learn more on why windows security/defender flags this on some device [click me](https://github.com/radin6262/MCL#defender)
+> The first startup may take longer than usual while required files are initialized.
 
-- You'll still need to configure this
+---
+
 ## Usage
 
 ### Basic Launch
@@ -62,14 +62,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-
-### Skin Cache Management
-
-The launcher automatically handles skin cache clearing to prevent persistent skin issues. This is necessary because Minecraft 1.20+ caches skins locally at:
-
-```text
-.minecraft/assets/skins/
-```
+---
 
 ## Project Structure
 
@@ -79,90 +72,104 @@ The launcher automatically handles skin cache clearing to prevent persistent ski
 ├── base.py                 # Base authentication handler
 ├── offline.py              # Offline authentication handler
 ├── launcher.py             # Minecraft process management
-├── skin.py                 # Yggdrasil and skin management service
 ├── requirements.txt        # Python dependencies
 └── README.md               # This file
 ```
+
+---
 
 ## Configuration
 
 ### Authentication
 
-The launcher uses `player.json` for player data and `offline_account.json` for account caching. These files are automatically generated on first run.
+The launcher uses `player.json` and `offline_account.json` to store account information. These files are generated automatically on first launch.
 
 ### Java Settings
 
-You can configure custom Java arguments from the Settings section (make sure you know what you're doing).
+Custom Java arguments can be configured from the Settings page.
+
+Only modify these settings if you understand what they do.
+
+---
 
 ## In-App Configuration
 
-Before launching Minecraft for the first time, you should configure your account and authentication settings.
+Before launching Minecraft for the first time, configure your account and authentication settings.
 
 ### 1. Configure Your Account
 
 1. Open the **Account Settings** tab.
-2. Edit your desired Minecraft username.
-3. Click the **Generate Random UUID** button to create a UUID for your account.
+2. Enter your desired username.
+3. Click **Generate Random UUID**.
 
-- Restart The Application to apply changes
-
-### 2. Install Authlib(for skin management)
+### 2. Configure Your Settings
 
 1. Open the **Settings** tab.
-2. Navigate to the **Authlib** section.
-3. Click **Install Authlib** and wait for the installation to complete.
+2. Set your preferred game resolution or enable **Fullscreen** mode.
+3. Configure the amount of memory (RAM) allocated to Minecraft.
 
-### 3. Import a Skin
+   * You can restore the recommended default value (**4 GB**) by clicking the reset/default button.
+4. Ensure the Java version you want to use is installed and available in your system's PATH.
+5. If you have multiple Java installations, select the Java executable you want Minecraft to use.
 
-1. Open the **Skin** tab.
-2. Click **Import Skin**.
-3. Select a valid Minecraft skin PNG file.
-4. If skin is vaild you will be prompted by a success msgbox
+> **Recommendation:** Java 25 is recommended because it can run all modern Minecraft versions supported by MCL. If you prefer another Java version, make sure the correct Java executable is selected in the launcher settings.
 
-After completing these steps, your launcher is ready to start Minecraft with custom authentication and skin support.
+After completing these steps, the launcher is ready to launch Minecraft.
 
 ---
 
 ## Launching the Game
 
-1. Select a version
-2. Click download to download the version
-3. after downloading finished click launch to launch the game
-4. if the game crashed re-download it using the button
-5. if that fails too reach out to the community or submit an issue at the github issues page
-> *Warning*: if a shell gets launched don't worry its the java shell we use it to launch the game but for some issues it shows up. but its not supposed to. this is a known bug and will be fix as soon as possibile(a long time later **:D**)
+1. Select a Minecraft version.
+2. Click **Download** if the version is not installed.
+3. Wait for the download to finish.
+4. Click **Launch**.
+5. If the game crashes, try downloading the version again.
+6. If the issue persists, submit an issue on GitHub.
 
+> Warning: A console window may briefly appear while launching Minecraft. This is normal and is used to start the Java process.
 
-
-
+---
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Skin Persistence**: If skins aren't updating, manually delete `.minecraft/assets/skins/` before launching.
-2. **Java Errors**: Ensure Java is installed and accessible in your PATH. If not, go to **Settings → Java** and select your Java executable.
-3. **Authentication Failures**: Delete `offline_account.json` and `player.json` to reset authentication.
-4. **Launcher Crashes After Game Exit**: This is a known bug and will be fixed as soon as possible.
-5. **Launcher Crashes Randomly Or After Game Launch**: This Issue isn't from the application. if you are running this application on pycharm or vscode this will happen(resource fighting)
+#### Java Errors
 
-### Debug Mode
+Ensure Java is installed and available in your system PATH.
 
-`authlib-injector` (the system used to inject skins, player data, etc.) has debug mode enabled by default.
+Alternatively, open **Settings → Java** and manually select your Java executable.
+
+#### Authentication Issues
+
+Delete the following files and restart the launcher:
+
+```text
+offline_account.json
+player.json
+```
+
+#### Launcher Crashes After Game Exit
+
+This is a known issue and will be fixed in a future release.
+
+#### Random Launcher Crashes
+
+If you are running MCL directly from an IDE such as VS Code or PyCharm, resource conflicts may occur.
+
+For best results, run the launcher from:
+
+* Windows PowerShell
+* Command Prompt (CMD)
 
 ---
-## Defender
-Windows Defender flags MCL's custom skin server(that is running on your device when you launch the game) due to using network and currently i have made a patch(an unused rsa generator was causing this) but windows defender may still flag the skin server... and well i as the main developer can't do something about it.
-well i can get a cert but that would cost 300-500$ a month.
 
-> Note: Library CryptoGraphy used by some other py libs was the culprit of this issue. It is now patched... Probably...
-
----
 ## Development
 
-### Setting Up the Development Environment
+### Development Environment Setup
 
-We Recommend You Use VsCode or Pycharm but for running the application we recommend you use the windows powershell or cmd
+You may use VS Code or PyCharm for development.
 
 ```bash
 python -m venv .venv
@@ -172,24 +179,34 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 ```
 
+---
+
 ## Contributing
 
 Coming soon.
 
+---
+
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the MIT License.
+
+See the `LICENSE` file for details.
+
+---
 
 ## Acknowledgments
 
 * Minecraft and Mojang for the game.
-* The Minecraft community for various launcher implementations.
+* The Minecraft community for launcher-related resources and documentation.
 * Contributors to the Python Minecraft launcher ecosystem.
-
-## Support
-
-For issues and feature requests, please use the GitHub Issues page.
 
 ---
 
-**Disclaimer:** This launcher is not affiliated with, endorsed by, or connected to Microsoft or Mojang in any way.
+## Support
+
+For bug reports, feature requests, and questions, please use the GitHub Issues page.
+
+---
+
+**Disclaimer:** MCL is not affiliated with, endorsed by, or associated with Microsoft, Mojang, or Minecraft.
