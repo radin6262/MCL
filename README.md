@@ -152,7 +152,7 @@ player.json
 
 #### Launcher Crashes After Game Exit
 
-This is a known issue and will be fixed in a future release.
+This issue has been patched since version 1.1.0
 
 #### Random Launcher Crashes
 
