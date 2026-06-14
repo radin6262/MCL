@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 import os
-import shutil
 import sys
 import json
 import platform
 import threading
 import time
-from asyncio import start_server
 
-import skin
 import requests
 import uuid as py_uuid
 from pathlib import Path
@@ -18,14 +15,14 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit,
                                QProgressBar, QComboBox, QStackedWidget, QButtonGroup,
                                QCheckBox, QSpinBox, QFileDialog, QGroupBox, QFormLayout,
-                               QSlider, QScrollArea, QFrame, QMessageBox)
+                               QSlider, QScrollArea, QFrame)
 from PySide6.QtCore import Qt, QThread, Signal, QByteArray, QSize
 from PySide6.QtGui import QFont, QIcon, QPixmap
 from offline import OfflineAuthProvider
 from launcher import GameLauncher
 
 
-# Inline SVGs (unchanged – only what we need)
+# Inline SVGs
 PLAY_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
   <path fill="#ffffff" d="M8 5v14l11-7z"/>
 </svg>"""
@@ -38,9 +35,6 @@ LOGS_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=
 SETTINGS_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
   <path fill="#ffffff" d="M19.14 12.94c0-.34-.02-.66-.06-.98l2.1-1.64c.24-.19.3-.52.14-.8l-1.96-3.4c-.16-.28-.46-.38-.74-.28l-2.48.98c-.56-.36-1.18-.64-1.86-.82L14.2 3.3c-.06-.28-.3-.48-.6-.48h-3.2c-.3 0-.54.2-.6.48l-.44 2.62c-.68.18-1.3.46-1.86.82l-2.48-.98c-.28-.1-.58 0-.74.28l-1.96 3.4c-.16.28-.1.6.14.8l2.1 1.64c-.04.32-.06.64-.06.98s.02.66.06.98l-2.1 1.64c-.24.19-.3.52-.14.8l1.96 3.4c.16.28.46.38.74.28l2.48-.98c.56.36 1.18.64 1.86.82l.44 2.62c.06.28.3.48.6.48h3.2c.3 0 .54-.2.6-.48l.44-2.62c.68-.18 1.3-.46 1.86-.82l2.48.98c.28.1.58 0 .74-.28l1.96-3.4c.16-.28.1-.6-.14-.8l-2.1-1.64c.04-.32.06-.64.06-.98zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
 </svg>"""
-SKIN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ffffff">
-  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08s5.97 1.09 6 3.08c-1.29 1.94-3.5 3.22-6 3.22z"/>
-</svg>"""
 
 
 def create_svg_icon(svg_string):
@@ -50,8 +44,29 @@ def create_svg_icon(svg_string):
     return QIcon(pixmap)
 
 
+def sort_versions(versions):
+    """Sort Minecraft version strings from newest to oldest."""
+    def version_sort_key(v):
+        parts = v.split('.')
+        result = []
+        for p in parts:
+            # Handle snapshot suffixes like "1.20.4-pre1"
+            num_part = ''
+            suffix_part = ''
+            for c in p:
+                if c.isdigit():
+                    num_part += c
+                else:
+                    suffix_part += c
+            result.append(int(num_part) if num_part else 0)
+            # String suffix gets a lower sort priority
+            result.append(suffix_part or '')
+        return result
+    return sorted(versions, key=version_sort_key, reverse=True)
+
+
 # ---------------------------------------------------------------------------
-# Settings (added authlib_enabled key)
+# Settings
 # ---------------------------------------------------------------------------
 class Settings:
     def __init__(self, path: str = "settings.json"):
@@ -62,10 +77,7 @@ class Settings:
             "height": 480,
             "java_path": "java",
             "ram_mb": 2048,
-            "java_args": "",
-            "authlib_injector_path": "authlib-injector.jar",
-            "authlib_injector_url": "http://localhost:58432",
-            "authlib_enabled": True,
+            "java_args": ""
         }
         self.load()
 
@@ -91,7 +103,7 @@ class Settings:
 
 
 # ---------------------------------------------------------------------------
-# Manifest fetcher (unchanged)
+# Manifest fetcher thread (online)
 # ---------------------------------------------------------------------------
 class ManifestFetcherThread(QThread):
     versions_signal = Signal(list)
@@ -111,7 +123,7 @@ class ManifestFetcherThread(QThread):
 
 
 # ---------------------------------------------------------------------------
-# Downloader thread (unchanged)
+# Downloader thread
 # ---------------------------------------------------------------------------
 class DownloaderThread(QThread):
     log_signal = Signal(str)
@@ -320,46 +332,6 @@ class DownloaderThread(QThread):
             self.finished_signal.emit()
 
 
-# ==========================================================================
-# NEW: Authlib download thread with real progress
-# ==========================================================================
-class AuthlibDownloadThread(QThread):
-    progress_signal = Signal(int)
-    finished_signal = Signal()
-    error_signal = Signal(str)
-
-    def __init__(self, url: str, target_path: str):
-        super().__init__()
-        self.url = url
-        self.target_path = target_path
-
-    def run(self):
-        try:
-            from urllib.request import urlopen, Request
-            req = Request(self.url, headers={"User-Agent": "Mozilla/5.0"})
-            with urlopen(req, timeout=30) as response:
-                total = int(response.headers.get("content-length", 0))
-                chunk_size = 65536
-                downloaded = 0
-                with open(self.target_path, 'wb') as f:
-                    while True:
-                        chunk = response.read(chunk_size)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total > 0:
-                            pct = int((downloaded / total) * 100)
-                            self.progress_signal.emit(pct)
-                        else:
-                            # indeterminate – just pulse 1-99
-                            self.progress_signal.emit(50)
-                self.progress_signal.emit(100)
-            self.finished_signal.emit()
-        except Exception as e:
-            self.error_signal.emit(str(e))
-
-
 # ---------------------------------------------------------------------------
 # Main GUI
 # ---------------------------------------------------------------------------
@@ -371,7 +343,7 @@ class MinecraftLauncherGUI(QMainWindow):
         self.game_dir = Path("./.minecraft")
         self.settings = Settings()
         self.game_process = None
-        self.skin_process = None  # will hold the skin.py subprocess
+
         self.setStyleSheet("""
             QMainWindow { background-color: #2b2b2b; }
             QLabel { color: #ffffff; font-weight: bold; }
@@ -482,7 +454,6 @@ class MinecraftLauncherGUI(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Navigation panel (no skin button)
         nav_widget = QWidget()
         nav_widget.setStyleSheet("background-color: #1e1e1e;")
         nav_widget.setFixedWidth(65)
@@ -502,12 +473,6 @@ class MinecraftLauncherGUI(QMainWindow):
         self.btn_nav_account.setProperty("class", "navButton")
         self.btn_nav_account.setCheckable(True)
 
-        self.btn_nav_skin = QPushButton()
-        self.btn_nav_skin.setIcon(create_svg_icon(SKIN_SVG))
-        self.btn_nav_skin.setIconSize(QSize(28, 28))
-        self.btn_nav_skin.setProperty("class", "navButton")
-        self.btn_nav_skin.setCheckable(True)
-
         self.btn_nav_logs = QPushButton()
         self.btn_nav_logs.setIcon(create_svg_icon(LOGS_SVG))
         self.btn_nav_logs.setIconSize(QSize(28, 28))
@@ -522,7 +487,6 @@ class MinecraftLauncherGUI(QMainWindow):
 
         nav_layout.addWidget(self.btn_nav_play)
         nav_layout.addWidget(self.btn_nav_account)
-        nav_layout.addWidget(self.btn_nav_skin)  # <-- ADDED
         nav_layout.addWidget(self.btn_nav_logs)
         nav_layout.addWidget(self.btn_nav_settings)
         nav_layout.addStretch()
@@ -531,23 +495,20 @@ class MinecraftLauncherGUI(QMainWindow):
         self.nav_group.setExclusive(True)
         self.nav_group.addButton(self.btn_nav_play, 0)
         self.nav_group.addButton(self.btn_nav_account, 1)
-        self.nav_group.addButton(self.btn_nav_skin, 2)  # <-- index 2
-        self.nav_group.addButton(self.btn_nav_logs, 3)
-        self.nav_group.addButton(self.btn_nav_settings, 4)
+        self.nav_group.addButton(self.btn_nav_logs, 2)
+        self.nav_group.addButton(self.btn_nav_settings, 3)
         self.nav_group.buttonClicked.connect(self._nav_clicked)
 
-        # Pages (no skin page)
+        # Pages
         self.pages = QStackedWidget()
         self.page_play = QWidget()
         self.page_account = QWidget()
-        self.page_skin = QWidget()  # <-- NEW
         self.page_logs = QWidget()
         self.page_settings = QWidget()
         self.pages.addWidget(self.page_play)     # 0
         self.pages.addWidget(self.page_account)  # 1
-        self.pages.addWidget(self.page_skin)  # 2  <-- NEW
-        self.pages.addWidget(self.page_logs)     # 3
-        self.pages.addWidget(self.page_settings)  # 4
+        self.pages.addWidget(self.page_logs)     # 2
+        self.pages.addWidget(self.page_settings) # 3
 
         main_layout.addWidget(nav_widget)
         main_layout.addWidget(self.pages)
@@ -557,19 +518,16 @@ class MinecraftLauncherGUI(QMainWindow):
 
         self._setup_play_tab()
         self._setup_account_tab()
-        self._setup_skin_tab()  # <-- NEW
         self._setup_logs_tab()
         self._setup_settings_tab()
-
 
         self.downloader_thread = None
         self.load_player_data()
         self.user_input.editingFinished.connect(self.save_player_data)
         self.uuid_input.editingFinished.connect(self.save_player_data)
 
-        self.fetcher = ManifestFetcherThread()
-        self.fetcher.versions_signal.connect(self.on_versions_fetched)
-        self.fetcher.start()
+        # Initial version list
+        self.refresh_versions()
 
     # ---- navigation -------------------------------------------------
     def _nav_clicked(self, button):
@@ -584,18 +542,29 @@ class MinecraftLauncherGUI(QMainWindow):
     def _setup_play_tab(self):
         layout = QVBoxLayout(self.page_play)
         layout.setContentsMargins(40, 40, 40, 40)
-        layout.addStretch()
-        ver_layout = QVBoxLayout()
+
+        # Top row: version label + refresh button
+        top_row = QHBoxLayout()
         ver_label = QLabel("Select Version:")
         ver_label.setStyleSheet("font-size: 16px; color: #aaaaaa; margin-bottom: 5px;")
+        top_row.addWidget(ver_label)
+        top_row.addStretch()
+        self.btn_refresh = QPushButton("↻ Refresh")
+        self.btn_refresh.setFixedWidth(100)
+        self.btn_refresh.setMinimumHeight(30)
+        self.btn_refresh.clicked.connect(self.refresh_versions)
+        top_row.addWidget(self.btn_refresh)
+
+        layout.addLayout(top_row)
+
         self.ver_combo = QComboBox()
         self.ver_combo.setEditable(False)
         self.ver_combo.setMinimumHeight(45)
         self.ver_combo.addItem("Loading versions...")
-        ver_layout.addWidget(ver_label)
-        ver_layout.addWidget(self.ver_combo)
-        layout.addLayout(ver_layout)
-        layout.addSpacing(30)
+        layout.addWidget(self.ver_combo)
+
+        layout.addSpacing(20)
+
         action_layout = QHBoxLayout()
         self.btn_download = QPushButton("Download")
         self.btn_download.setMinimumHeight(55)
@@ -609,9 +578,11 @@ class MinecraftLauncherGUI(QMainWindow):
         action_layout.addWidget(self.btn_launch)
         layout.addLayout(action_layout)
         layout.addStretch()
+
         self.file_progress_label = QLabel("")
         self.file_progress_label.setStyleSheet("color: #aaaaaa; font-size: 13px;")
         layout.addWidget(self.file_progress_label)
+
         overall_label = QLabel("Overall Progress:")
         overall_label.setStyleSheet("color: #aaaaaa; font-size: 13px; margin-top: 10px;")
         layout.addWidget(overall_label)
@@ -619,6 +590,7 @@ class MinecraftLauncherGUI(QMainWindow):
         self.overall_progress_bar.setValue(0)
         self.overall_progress_bar.setFixedHeight(10)
         layout.addWidget(self.overall_progress_bar)
+
         current_file_label = QLabel("Current File:")
         current_file_label.setStyleSheet("color: #aaaaaa; font-size: 13px; margin-top: 5px;")
         layout.addWidget(current_file_label)
@@ -627,6 +599,7 @@ class MinecraftLauncherGUI(QMainWindow):
         self.current_file_progress_bar.setValue(0)
         self.current_file_progress_bar.setFixedHeight(10)
         layout.addWidget(self.current_file_progress_bar)
+
         self.ver_combo.currentTextChanged.connect(self.check_version_status)
 
     # ---- Account tab ------------------------------------------------
@@ -637,225 +610,35 @@ class MinecraftLauncherGUI(QMainWindow):
         title = QLabel("Account Configuration")
         title.setStyleSheet("font-size: 24px; color: #ffffff; margin-bottom: 20px;")
         layout.addWidget(title)
+
         warning_label = QLabel(
-            "Warning:\n- Changing UUID may mess with your server data...\n- Changing UUID may also mess with skins...\n- After configuring your account go and install authlib from the settings and set a skin")
+            "Note:\n- Changing UUID may affect server data and world ownership.\n- a UUID Matching Someone Will Not Give You Their Skin"
+        )
         warning_label.setStyleSheet(
-            "background-color: #3a3a1a; border: 1px solid #ffaa00; border-radius: 6px; padding: 12px; color: #ffcc00; font-weight: bold; font-size: 13px;")
+            "background-color: #3a3a1a; border: 1px solid #ffaa00; border-radius: 6px; padding: 12px; "
+            "color: #ffcc00; font-weight: bold; font-size: 13px;"
+        )
         warning_label.setWordWrap(True)
         layout.addWidget(warning_label)
+
         user_label = QLabel("Username:")
         self.user_input = QLineEdit("DevPlayer")
         self.user_input.setMinimumHeight(40)
         layout.addWidget(user_label)
         layout.addWidget(self.user_input)
+
         uuid_label = QLabel("Player UUID:")
         self.uuid_input = QLineEdit()
         self.uuid_input.setMinimumHeight(40)
         self.uuid_input.setPlaceholderText("Must be configured to play...")
         layout.addWidget(uuid_label)
         layout.addWidget(self.uuid_input)
+
         self.btn_generate_uuid = QPushButton("Generate Random UUID")
         self.btn_generate_uuid.setMinimumHeight(40)
         self.btn_generate_uuid.clicked.connect(self.generate_uuid)
         layout.addWidget(self.btn_generate_uuid)
         layout.addStretch()
-
-    # ------------------------------------------------------------------
-    # Skin tab
-    # ------------------------------------------------------------------
-    def _setup_skin_tab(self):
-        layout = QVBoxLayout(self.page_skin)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(20)
-
-        title = QLabel("Skin Manager")
-        title.setStyleSheet("font-size: 24px; color: #ffffff; margin-bottom: 10px;")
-        layout.addWidget(title)
-
-        # -- UUID display --
-        uuid_layout = QHBoxLayout()
-        uuid_label = QLabel("Current player UUID:")
-        uuid_label.setStyleSheet("font-size: 14px; color: #aaaaaa;")
-        self.skin_uuid_display = QLabel("(load player.json first)")
-        self.skin_uuid_display.setStyleSheet("font-size: 14px; color: #ffffff; font-family: monospace;")
-        uuid_layout.addWidget(uuid_label)
-        uuid_layout.addWidget(self.skin_uuid_display)
-        uuid_layout.addStretch()
-        layout.addLayout(uuid_layout)
-
-        # -- Skin status --
-        status_layout = QHBoxLayout()
-        status_label = QLabel("Status:")
-        status_label.setStyleSheet("font-size: 14px; color: #aaaaaa;")
-        self.skin_status = QLabel("Not checked")
-        self.skin_status.setStyleSheet("font-size: 14px; font-weight: bold;")
-        status_layout.addWidget(status_label)
-        status_layout.addWidget(self.skin_status)
-        status_layout.addStretch()
-        layout.addLayout(status_layout)
-
-        # -- Preview area --
-        preview_group = QGroupBox("Current Skin Preview")
-        preview_layout = QVBoxLayout(preview_group)
-        self.skin_preview = QLabel("No skin loaded")
-        self.skin_preview.setAlignment(Qt.AlignCenter)
-        self.skin_preview.setMinimumSize(128, 128)
-        self.skin_preview.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px;")
-        preview_layout.addWidget(self.skin_preview)
-        layout.addWidget(preview_group)
-
-        # -- Upload area --
-        upload_group = QGroupBox("Upload New Skin")
-        upload_layout = QVBoxLayout(upload_group)
-        upload_info = QLabel(
-            "Select a 64×32 or 64×64 PNG file.\n"
-            "The file will be saved as skins/<uuid-with-no-dashes>.png."
-        )
-        upload_info.setWordWrap(True)
-        upload_info.setStyleSheet("color: #cccccc;")
-        upload_layout.addWidget(upload_info)
-
-        upload_btn_row = QHBoxLayout()
-        self.btn_select_skin = QPushButton("Select PNG File")
-        self.btn_select_skin.setMinimumHeight(40)
-        self.btn_select_skin.clicked.connect(self._upload_skin)
-        upload_btn_row.addWidget(self.btn_select_skin)
-
-        self.btn_remove_skin = QPushButton("🗑 Remove Skin")
-        self.btn_remove_skin.setMinimumHeight(40)
-        self.btn_remove_skin.setStyleSheet("background-color: #8b0000;")
-        self.btn_remove_skin.clicked.connect(self._remove_skin)
-        upload_btn_row.addWidget(self.btn_remove_skin)
-        upload_btn_row.addStretch()
-        upload_layout.addLayout(upload_btn_row)
-
-        layout.addWidget(upload_group)
-        layout.addStretch()
-
-        # Load current data after UI is built
-        self._refresh_skin_tab()
-
-    def _refresh_skin_tab(self):
-        """Re-read player.json and update skin tab display."""
-        uuid_raw = ""
-        try:
-            path = Path("player.json")
-            if path.exists():
-                with open(path) as f:
-                    data = json.load(f)
-                    uuid_raw = data.get("uuid", "")
-        except Exception:
-            pass
-
-        if uuid_raw:
-            self.skin_uuid_display.setText(uuid_raw)
-            # Sanitize: remove dashes
-            uuid_clean = uuid_raw.replace("-", "").lower()
-            skin_path = Path("skins") / f"{uuid_clean}.png"
-
-            if skin_path.exists():
-                self.skin_status.setText("✅ Skin exists")
-                self.skin_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #3C8527;")
-                # Load preview
-                pixmap = QPixmap(str(skin_path))
-                if not pixmap.isNull():
-                    scaled = pixmap.scaled(128, 128, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.skin_preview.setPixmap(scaled)
-                self.btn_remove_skin.setEnabled(True)
-            else:
-                self.skin_status.setText("❌ No skin file found")
-                self.skin_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #ff5555;")
-                self.skin_preview.clear()
-                self.skin_preview.setText("No skin loaded")
-                self.btn_remove_skin.setEnabled(False)
-        else:
-            self.skin_uuid_display.setText("(no UUID in player.json / if a uuid is set Restart This Application to apply it)")
-            self.skin_status.setText("⚠ UUID not set")
-            self.skin_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffaa00;")
-            self.skin_preview.clear()
-            self.skin_preview.setText("No skin loaded")
-            self.btn_remove_skin.setEnabled(False)
-
-    def _upload_skin(self):
-        """Open a file dialog and copy the selected PNG to skins/<uuid_clean>.png."""
-        # Read UUID from player.json
-        uuid_raw = ""
-        try:
-            path = Path("player.json")
-            if path.exists():
-                with open(path) as f:
-                    data = json.load(f)
-                    uuid_raw = data.get("uuid", "")
-        except Exception:
-            pass
-
-        if not uuid_raw:
-            QMessageBox.warning(self, "No UUID", "Set a UUID in the Account tab first.")
-            self._switch_to_tab(1)
-            return
-
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Skin PNG", "",
-            "PNG Images (*.png);;All Files (*)"
-        )
-        if not file_path:
-            return
-
-        # Validate it's a PNG
-        if not file_path.lower().endswith(".png"):
-            QMessageBox.warning(self, "Invalid File", "Please select a .png file.")
-            return
-
-        # Build target path: skins/<uuid_nodashes>.png
-        uuid_clean = uuid_raw.replace("-", "").lower()
-        target_dir = Path("skins")
-        target_dir.mkdir(exist_ok=True)
-        target_path = target_dir / f"{uuid_clean}.png"
-
-        # Copy file
-        try:
-            import shutil
-            shutil.copy2(file_path, str(target_path))
-            self.log(f"[SKIN] Uploaded skin for {uuid_raw} → {target_path}")
-            self._refresh_skin_tab()
-            QMessageBox.information(self, "Success", "Skin uploaded successfully!")
-        except Exception as e:
-            self.log(f"[SKIN ERROR] Failed to copy: {e}")
-            QMessageBox.critical(self, "Error", f"Could not save skin:\n{e}")
-
-    def _remove_skin(self):
-        """Delete the skin file if it exists."""
-        uuid_raw = ""
-        try:
-            path = Path("player.json")
-            if path.exists():
-                with open(path) as f:
-                    data = json.load(f)
-                    uuid_raw = data.get("uuid", "")
-        except Exception:
-            pass
-
-        if not uuid_raw:
-            return
-
-        uuid_clean = uuid_raw.replace("-", "").lower()
-        target_path = Path("skins") / f"{uuid_clean}.png"
-
-        if target_path.exists():
-            reply = QMessageBox.question(
-                self, "Confirm Removal",
-                f"Delete skin for UUID {uuid_raw}?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-            )
-            if reply == QMessageBox.Yes:
-                try:
-                    target_path.unlink()
-                    self.log(f"[SKIN] Removed skin: {target_path}")
-                    self._refresh_skin_tab()
-                except Exception as e:
-                    self.log(f"[SKIN ERROR] Failed to remove: {e}")
-                    QMessageBox.critical(self, "Error", f"Could not remove skin:\n{e}")
-
 
     # ---- Logs tab --------------------------------------------------
     def _setup_logs_tab(self):
@@ -876,9 +659,6 @@ class MinecraftLauncherGUI(QMainWindow):
             self.java_path_edit.setText(path)
 
     def _setup_settings_tab(self):
-        # ---------------------------------------------------------------
-        # Create a scroll area and a content widget
-        # ---------------------------------------------------------------
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.NoFrame)
@@ -889,15 +669,9 @@ class MinecraftLauncherGUI(QMainWindow):
 
         content_widget = QWidget()
         content_widget.setStyleSheet("background: transparent;")
-        # The content widget will hold all settings elements
         layout = QVBoxLayout(content_widget)
         layout.setContentsMargins(40, 40, 40, 40)
         layout.setSpacing(20)
-
-        # ---------------------------------------------------------------
-        # Now everything you had in the original _setup_settings_tab goes below
-        # Just replace the page_layout variable with 'layout'
-        # ---------------------------------------------------------------
 
         title = QLabel("Launch Settings")
         title.setStyleSheet("font-size: 24px; color: #ffffff; margin-bottom: 10px;")
@@ -961,66 +735,13 @@ class MinecraftLauncherGUI(QMainWindow):
         self.ram_slider.valueChanged.connect(self._on_ram_changed)
         layout.addWidget(ram_group)
 
-        # ========== AUTH‑INJECTOR SETTINGS ==========
-        authlib_group = QGroupBox("authlib‑injector (Custom Skins)")
-        authlib_layout = QVBoxLayout(authlib_group)
-        authlib_layout.setSpacing(12)
-
-        path_form = QFormLayout()
-        path_form.setSpacing(8)
-        path_row = QHBoxLayout()
-        self.authlib_path_edit = QLineEdit(self.settings.get("authlib_injector_path", "authlib-injector.jar"))
-        self.authlib_path_edit.setMinimumHeight(35)
-        self.authlib_path_edit.textChanged.connect(lambda t: self.settings.set("authlib_injector_path", t))
-        self.btn_browse_authlib = QPushButton("Browse...")
-        self.btn_browse_authlib.clicked.connect(self._browse_authlib)
-        path_row.addWidget(self.authlib_path_edit, 1)
-        path_row.addWidget(self.btn_browse_authlib)
-        path_form.addRow("JAR path:", path_row)
-        authlib_layout.addLayout(path_form)
-
-        url_form = QFormLayout()
-        url_form.setSpacing(8)
-        url_row = QHBoxLayout()
-        self.authlib_url_edit = QLineEdit(self.settings.get("authlib_injector_url", "http://localhost:58432"))
-        self.authlib_url_edit.setMinimumHeight(35)
-        self.authlib_url_edit.textChanged.connect(lambda t: self.settings.set("authlib_injector_url", t))
-        url_row.addWidget(self.authlib_url_edit, 1)
-        url_form.addRow("Auth server URL:", url_row)
-        authlib_layout.addLayout(url_form)
-
-        options_row = QHBoxLayout()
-        self.authlib_enabled_check = QCheckBox("Enable authlib‑injector")
-        self.authlib_enabled_check.setChecked(self.settings.get("authlib_enabled", True))
-        self.authlib_enabled_check.toggled.connect(lambda checked: self.settings.set("authlib_enabled", checked))
-        options_row.addWidget(self.authlib_enabled_check)
-
-        self.btn_install_authlib = QPushButton("⬇ Install authlib")
-        self.btn_install_authlib.clicked.connect(self._install_authlib)
-        self.btn_install_authlib.setFixedHeight(35)
-        options_row.addWidget(self.btn_install_authlib)
-        options_row.addStretch()
-        authlib_layout.addLayout(options_row)
-
-        self.authlib_progress_bar = QProgressBar()
-        self.authlib_progress_bar.setValue(0)
-        self.authlib_progress_bar.setFixedHeight(12)
-        self.authlib_progress_bar.setVisible(False)
-        authlib_layout.addWidget(self.authlib_progress_bar)
-
-        info_label = QLabel("Download from: https://github.com/yushijinhun/authlib-injector/releases")
-        info_label.setStyleSheet("color: #888; font-size: 12px; margin-top: 4px;")
-        authlib_layout.addWidget(info_label)
-
-        layout.addWidget(authlib_group)
-
         # ---- Extra Java args ----
         java_args_group = QGroupBox("Extra JVM Arguments")
         java_args_layout = QVBoxLayout(java_args_group)
         self.java_args_edit = QLineEdit(self.settings.get("java_args", ""))
         self.java_args_edit.setPlaceholderText("e.g. -XX:+UseG1GC -Dlog4j.configurationFile=...")
         self.java_args_edit.textChanged.connect(lambda text: self.settings.set("java_args", text))
-        java_args_layout.addWidget(QLabel("Additional flags (space‑separated):"))
+        java_args_layout.addWidget(QLabel("Additional flags (space‑separated - Make sure what you know what you are doing):"))
         java_args_layout.addWidget(self.java_args_edit)
         layout.addWidget(java_args_group)
 
@@ -1042,80 +763,76 @@ class MinecraftLauncherGUI(QMainWindow):
         java_layout.addWidget(info_label)
         layout.addWidget(java_group)
 
-        layout.addStretch()  # push everything up
+        layout.addStretch()
 
-        # ---------------------------------------------------------------
-        # Wrap up: set the content widget into the scroll area,
-        # then add the scroll area to the page.
-        # ---------------------------------------------------------------
         scroll_area.setWidget(content_widget)
-
-        # Clear the page layout and add the scroll area
         page_layout = self.page_settings.layout()
         if page_layout is None:
             page_layout = QVBoxLayout(self.page_settings)
             self.page_settings.setLayout(page_layout)
         else:
-            # Remove any existing widgets from the page layout
             while page_layout.count():
                 item = page_layout.takeAt(0)
                 if item.widget():
                     item.widget().deleteLater()
         page_layout.addWidget(scroll_area)
 
-    # ---- authlib helpers --------------------------------------------
-    def _browse_authlib(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select authlib-injector.jar", "",
-                                              "JAR Files (*.jar);;All Files (*)")
-        if path:
-            self.authlib_path_edit.setText(path)
-            self.settings.set("authlib_injector_path", path)
+    # ---- Version refresh (online + local) ---------------------------
+    def refresh_versions(self):
+        """Fetch online versions and combine with locally installed ones."""
+        self.ver_combo.blockSignals(True)
+        self.ver_combo.clear()
+        self.ver_combo.addItem("Loading versions...")
+        self.btn_refresh.setEnabled(False)
 
-    def _install_authlib(self):
-        target = self.authlib_path_edit.text().strip()
-        if not target:
-            target = "authlib-injector.jar"
+        # Start online fetcher in background
+        self.fetcher = ManifestFetcherThread()
+        self.fetcher.versions_signal.connect(self._on_versions_combined)
+        self.fetcher.start()
 
-        # Convert to absolute path
-        target = os.path.abspath(target)
-        self.authlib_path_edit.setText(target)
+        # Also read local versions immediately
+        local_versions = self._get_local_versions()
+        if local_versions:
+            self._local_versions = local_versions
+        else:
+            self._local_versions = []
 
-        url = ("https://github.com/yushijinhun/authlib-injector/releases/download/"
-               "v1.2.7/authlib-injector-1.2.7.jar")
+    def _get_local_versions(self):
+        """Return list of version ids that have a JSON file in versions/"""
+        versions_dir = self.game_dir / "versions"
+        if not versions_dir.exists():
+            return []
+        result = []
+        for folder in versions_dir.iterdir():
+            if folder.is_dir():
+                ver = folder.name
+                if (folder / f"{ver}.json").exists():
+                    result.append(ver)
+        return result  # Not sorted here; will be sorted in _on_versions_combined
 
-        self.log("[INFO] Downloading authlib-injector v1.2.7 ...")
-        self.log(f"[INFO] Target: {target}")
+    def _on_versions_combined(self, online_versions):
+        """Called when online fetch completes. Merge with local versions."""
+        # Combine and deduplicate
+        all_versions = list(set(online_versions) | set(self._local_versions))
+        # Use proper version sorting
+        sorted_versions = sort_versions(all_versions)
 
-        self.authlib_progress_bar.setVisible(True)
-        self.authlib_progress_bar.setValue(0)
-        self.btn_install_authlib.setEnabled(False)
-        self.btn_install_authlib.setText("Downloading…")
-        QApplication.processEvents()
+        self.ver_combo.blockSignals(True)
+        self.ver_combo.clear()
+        if sorted_versions:
+            self.ver_combo.addItems(sorted_versions)
+        else:
+            self.ver_combo.addItem("No versions found")
+        self.ver_combo.blockSignals(False)
+        self.btn_refresh.setEnabled(True)
 
-        self.authlib_dl_thread = AuthlibDownloadThread(url, target)
-        self.authlib_dl_thread.progress_signal.connect(self.authlib_progress_bar.setValue)
-        self.authlib_dl_thread.finished_signal.connect(self._on_authlib_install_finished)
-        self.authlib_dl_thread.error_signal.connect(self._on_authlib_install_error)
-        self.authlib_dl_thread.start()
-
-    def _on_authlib_install_finished(self):
-        self.authlib_progress_bar.setVisible(False)
-        self.btn_install_authlib.setEnabled(True)
-        self.btn_install_authlib.setText("⬇ Install authlib")
-
-        target = os.path.abspath(self.authlib_path_edit.text().strip())
-        self.authlib_path_edit.setText(target)
-
-        self.settings.set("authlib_injector_path", target)
-
-        self.authlib_enabled_check.setChecked(True)
-        self.log(f"[SUCCESS] authlib-injector saved to {target}")
-
-    def _on_authlib_install_error(self, error_msg):
-        self.authlib_progress_bar.setVisible(False)
-        self.btn_install_authlib.setEnabled(True)
-        self.btn_install_authlib.setText("⬇ Install authlib")
-        self.log(f"[ERROR] Download failed: {error_msg}")
+        # Update status for the current selection
+        current = self.ver_combo.currentText()
+        if current and current != "No versions found":
+            self.check_version_status(current)
+        else:
+            self.btn_launch.setEnabled(False)
+            self.btn_download.setEnabled(False)
 
     # ---- callback helpers -------------------------------------------
     def _on_fullscreen_toggled(self, checked):
@@ -1123,19 +840,10 @@ class MinecraftLauncherGUI(QMainWindow):
         self.height_spin.setEnabled(not checked)
         self.settings.set("fullscreen", checked)
 
-    def on_versions_fetched(self, versions):
-        self.ver_combo.blockSignals(True)
-        self.ver_combo.clear()
-        if versions:
-            self.ver_combo.addItems(versions)
-        else:
-            self.ver_combo.addItem("1.20.4")
-        self.ver_combo.blockSignals(False)
-        self.check_version_status(self.ver_combo.currentText())
-
     def check_version_status(self, version_str):
-        if not version_str or version_str == "Loading versions...":
+        if not version_str or version_str in ("Loading versions...", "No versions found"):
             self.btn_launch.setEnabled(False)
+            self.btn_download.setEnabled(False)
             return
         json_path = self.game_dir / "versions" / version_str / f"{version_str}.json"
         if json_path.exists():
@@ -1146,6 +854,7 @@ class MinecraftLauncherGUI(QMainWindow):
             self.btn_launch.setEnabled(False)
             self.btn_download.setText("Download")
             self.btn_launch.setText("NOT INSTALLED")
+            self.btn_download.setEnabled(True)
 
     def log(self, message: str):
         self.log_output.append(message)
@@ -1192,7 +901,7 @@ class MinecraftLauncherGUI(QMainWindow):
     # ---- Download & launch ------------------------------------------
     def start_download(self):
         version = self.ver_combo.currentText().strip()
-        if not version or version == "Loading versions...":
+        if not version or version in ("Loading versions...", "No versions found"):
             self.log("[ERROR] Select a valid version.")
             return
         self.btn_download.setEnabled(False)
@@ -1214,20 +923,6 @@ class MinecraftLauncherGUI(QMainWindow):
         self.file_progress_label.setText("Download finished.")
         self.check_version_status(self.ver_combo.currentText())
 
-    def start_skin_server(self):
-        """Start skin.py in a background thread"""
-
-        def run_skin():
-            import skin
-            skin.main()  # This will block, but only in this thread
-
-        skin_thread = threading.Thread(target=run_skin, daemon=True)
-        skin_thread.start()
-
-        # Wait a moment for server to start
-        time.sleep(2)
-        return skin_thread
-
     def launch_game(self):
         username = self.user_input.text().strip()
         version = self.ver_combo.currentText().strip()
@@ -1236,7 +931,7 @@ class MinecraftLauncherGUI(QMainWindow):
             self.log("[ERROR] Missing Username or UUID! Go to the Account tab.")
             self._switch_to_tab(1)
             return
-        self._switch_to_tab(3)  # logs tab (index 3)
+        self._switch_to_tab(2)  # logs tab (index 2)
         self.log(f"\n[INFO] Launching {version}...")
 
         # Save current player data before launch
@@ -1252,45 +947,6 @@ class MinecraftLauncherGUI(QMainWindow):
         ram_mb = self.settings.get("ram_mb", 2048)
         java_args_str = self.settings.get("java_args", "").strip()
         java_args = java_args_str.split() if java_args_str else []
-
-        # Add authlib-injector if enabled
-        authlib_enabled = self.settings.get("authlib_enabled", True)
-        if authlib_enabled:
-            authlib_path = self.settings.get("authlib_injector_path", "authlib-injector.jar")
-            authlib_url = self.settings.get("authlib_injector_url", "http://localhost:58432")
-            # Check if file exists, show warning if not
-            if not Path(authlib_path).exists():
-                self.log(f"[WARNING] authlib‑injector.jar not found at: {authlib_path}")
-                self.log("[WARNING] Use the 'Install authlib' button in Settings to download it.")
-            java_args.insert(0, f"-javaagent:{authlib_path}={authlib_url}")
-            java_args.append("-Dauthlibinjector.noShowServerName")
-            java_args.append("-Dauthlibinjector.debug=verbose")
-            self.log(f"[INFO] Using authlib‑injector: {authlib_path} -> {authlib_url}")
-
-        try:
-            self.log("[INFO] Starting skin.py (Yggdrasil auth server)...")
-            self.start_skin_server()
-        except FileNotFoundError:
-            self.log("[WARN] skin.py not found – continuing without it.")
-        except Exception as e:
-            self.log(f"[WARN] Could not start skin.py: {e}")
-
-        self.log(f"[DEBUG] Waiting 1 seconds to let skin server start")
-        time.sleep(1)
-
-        # delete mc skin cache
-        skd = os.path.join(os.getcwd(), '.minecraft', 'assets', 'skins')
-
-        try:
-            if os.path.exists(skd):
-                shutil.rmtree(skd)
-                self.log(f"[DEBUG] Successfully deleted: {skd}")
-            else:
-                self.log(f"[DEBUG] No skin cache to delete. This isn't an Error. You can safely continue.: {skd}")
-        except PermissionError:
-            self.log(f"[Fail] Permission denied: cannot delete {skd}. Try running as administrator.")
-        except Exception as e:
-            self.log(f"[Fail] An error occurred: {e}")
 
         try:
             # Use player.json for authentication
