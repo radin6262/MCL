@@ -415,7 +415,7 @@ class UpdateDialog(QDialog):
         """Launch the updater helper, then exit."""
         current_exe = sys.executable
         new_exe = self.download_path
-        updater_path = os.path.join(os.path.dirname(current_exe), "Updater.exe")
+        updater_path = os.path.join(os.path.dirname(current_exe), "updater_script.exe")
 
         if not os.path.exists(updater_path):
             QMessageBox.critical(self, "Error",
