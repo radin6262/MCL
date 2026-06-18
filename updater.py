@@ -412,30 +412,26 @@ class UpdateDialog(QDialog):
             self.accept()
 
     def _perform_update(self):
-        """Launch hidden updater process, then close the launcher."""
+        """Launch the updater helper, then exit."""
         current_exe = sys.executable
         new_exe = self.download_path
+        updater_path = os.path.join(os.path.dirname(current_exe), "Updater.exe")
 
-        # Use a loop that waits for the launcher process to exit (instead of fixed timeout)
-        # This is safer: it waits until the launcher releases the file.
-        cmd = (
-            f':loop\n'
-            f'tasklist /FI "IMAGENAME eq {os.path.basename(current_exe)}" 2>nul | '
-            f'find /I "{os.path.basename(current_exe)}" >nul && '
-            f'timeout /t 1 /nobreak >nul && goto loop\n'
-            f'copy /Y "{new_exe}" "{current_exe}" && '
-            f'del "{new_exe}" && '
-            f'start "" "{current_exe}"'
-        )
+        if not os.path.exists(updater_path):
+            QMessageBox.critical(self, "Error",
+                                 "Updater.exe not found next to the launcher.\n"
+                                 "Please reinstall or run the manual update.")
+            return
 
+        # Launch updater with paths
         subprocess.Popen(
-            ['cmd', '/c', cmd],
+            [updater_path, '--current', current_exe, '--update', new_exe],
             creationflags=subprocess.CREATE_NO_WINDOW
         )
 
-        # Now exit the launcher immediately to release the file lock
+        # Close the launcher now – the updater will handle the rest
         self.accept()
-        QApplication.instance().quit()
+        QApplication.quit()
 
 
 # ──────────────────────────────────────────────────────────────
