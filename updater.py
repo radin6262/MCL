@@ -191,13 +191,28 @@ class UpdateDialog(QDialog):
         self.current_version = current_version or self._read_local_version()
         self.update_info = None
         self.download_path = None
-        self._is_script = not getattr(sys, 'frozen', False)
+        self._is_script = not self._is_compiled()
 
         self._setup_stacked_pages()
         self.setStyleSheet(GREEN_DARK_STYLE)
         self.setWindowTitle("Launcher Updater")
         self.setFixedSize(480, 340)
         self._start_check()
+
+    def _is_compiled(self) -> bool:
+        """Return True if running from a compiled executable."""
+        # PyInstaller
+        if getattr(sys, 'frozen', False):
+            return True
+        # Nuitka
+        if getattr(sys, 'nuitka', False):
+            return True
+        if '__compiled__' in globals():
+            return True
+        # cx_Freeze / py2exe
+        if hasattr(sys, 'frozen') and sys.frozen:
+            return True
+        return False
 
     def _read_local_version(self):
         return APP_VERSION
@@ -407,6 +422,12 @@ class UpdateDialog(QDialog):
             f'copy /Y "{new_exe}" "{current_exe}" && '
             f'del "{new_exe}" && '
             f'start "" "{current_exe}"'
+        )
+
+        # Launch hidden cmd process (no .bat file written to disk)
+        subprocess.Popen(
+            ['cmd', '/c', cmd],
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
 
 
