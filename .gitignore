@@ -26,10 +26,6 @@ dist/
 
 __pycache__/
 
-updater_script.build/
-updater_script.dist/
-updater_script.onefile-biild/
-
 authlib-injector.jar
 
 *.pyc
