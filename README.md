@@ -1,62 +1,92 @@
-# MCL - A Minecraft Launcher
+# MCL
 
-Python is not Java.
+> A modern, open-source Minecraft launcher written in Python.
+
+> **Running MCL from source is intended for developers only.**
+> If you simply want to play Minecraft, **download the latest release from the GitHub Releases page instead.** Running from source may require additional setup and troubleshooting.
 
 ---
 
 ## Features
 
-* **Offline Authentication**: Supports offline authentication without requiring Mojang servers.
-* **Multi-Version Support**: Launch different Minecraft versions with isolated instances.
-* **Custom Java Arguments**: Configure memory allocation and other JVM parameters.
-* **Real-Time Logging**: View Minecraft output directly from the launcher interface.
+* **Offline Authentication** – Play Minecraft without a Microsoft account.
+* **Multi-Version Support** – Download and launch multiple Minecraft versions with isolated instances.
+* **Custom Java Management** – Select your preferred Java installation and customize JVM arguments.
+* **Real-Time Logging** – View Minecraft output directly inside the launcher.
+* **Skin Support** – Import custom player skins.
+* **Easy Configuration** – Manage launcher settings through a simple graphical interface.
 
 ---
 
-## Prerequisites
+## Requirements
 
-* Python 3.8 or higher (Python 3.14 recommended)
-* Java 17, 21, or 25 (depending on the Minecraft version you run)
+### Operating System
+
+* Windows 10 or newer (officially supported)
+
+### Python *(only required when running from source)*
+
+* Python **3.8** or newer
+* **Python 3.14 is recommended**
+
+### Java
+
+* Java **17**, **21**, or **25**
+* **Java 25 is recommended**, as it supports all Minecraft versions supported by MCL.
 
 ---
 
-## Installation From Source
+# Download (Recommended)
 
-> It is recommended to use a virtual environment (venv).
+For most users, **download a pre-built release**.
 
-1. Clone the repository:
+1. Go to the GitHub **Releases** page.
+2. Download the latest release.
+3. Run the installer or executable.
+4. Launch MCL.
+
+> The first launch may take a few moments while the launcher initializes and downloads required files.
+
+---
+
+# Building From Source (Developers)
+
+> **Building from source is not recommended unless you are developing or contributing to MCL.**
+>
+> If you only want to play Minecraft, download the latest release instead.
+
+## Clone the Repository
 
 ```bash
 git clone https://github.com/radin6262/MCL.git
 cd MCL
 ```
 
-2. Install dependencies:
+## Create a Virtual Environment (Recommended)
+
+```bash
+python -m venv .venv
+```
+
+### Windows
+
+```bat
+.venv\Scripts\activate
+```
+
+### Linux/macOS
+
+```bash
+source .venv/bin/activate
+```
+
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Launcher configuration is handled inside the application.
-
----
-
-## Windows Installation
-
-1. Go to the GitHub Releases page.
-2. Download the latest release.
-3. Run the installer or executable.
-4. Choose a directory for MCL.
-5. (Optional) Create a folder named `MCL` to keep launcher files organized.
-6. Launch MCL.
-
-> The first startup may take longer than usual while required files are initialized.
-
----
-
-## Usage
-
-### Basic Launch
+## Launch MCL
 
 ```bash
 python main.py
@@ -64,130 +94,90 @@ python main.py
 
 ---
 
-## Project Structure
+# First-Time Setup
 
-```text
-.
-├── main.py                 # Main launcher application
-├── base.py                 # Base authentication handler
-├── offline.py              # Offline authentication handler
-├── launcher.py             # Minecraft process management
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
-```
+Before launching Minecraft for the first time:
 
----
-
-## Configuration
-
-### Authentication
-
-The launcher uses `player.json` and `offline_account.json` to store account information. These files are generated automatically on first launch.
-
-### Java Settings
-
-Custom Java arguments can be configured from the Settings page.
-
-Only modify these settings if you understand what they do.
-
----
-
-## In-App Configuration
-
-Before launching Minecraft for the first time, configure your account and authentication settings.
-
-### 1. Configure Your Account
+## Configure Your Account
 
 1. Open the **Account Settings** tab.
-2. Enter your desired username.
+2. Enter your preferred username.
 3. Click **Generate Random UUID**.
 
-### 2. Configure Your Settings
+## Configure the Launcher
 
 1. Open the **Settings** tab.
-2. Set your preferred game resolution or enable **Fullscreen** mode.
-3. Configure the amount of memory (RAM) allocated to Minecraft.
+2. Configure your preferred game resolution or enable **Fullscreen**.
+3. Adjust the amount of RAM allocated to Minecraft.
+4. Install **Authlib** from the **Authlib** section.
+5. Select the Java executable you want MCL to use.
+6. (Optional) Import a skin from the **Skins** page.
 
-   * You can restore the recommended default value (**4 GB**) by clicking the reset/default button.
-4. Ensure the Java version you want to use is installed and available in your system's PATH.
-5. If you have multiple Java installations, select the Java executable you want Minecraft to use.
-
-> **Recommendation:** Java 25 is recommended because it can run all modern Minecraft versions supported by MCL. If you prefer another Java version, make sure the correct Java executable is selected in the launcher settings.
-
-After completing these steps, the launcher is ready to launch Minecraft.
+> Java 25 is recommended because it supports all Minecraft versions currently supported by MCL.
 
 ---
 
-## Launching the Game
+# Launching Minecraft
 
 1. Select a Minecraft version.
 2. Click **Download** if the version is not installed.
-3. Wait for the download to finish.
+3. Wait for the download to complete.
 4. Click **Launch**.
-5. If the game crashes, try downloading the version again.
-6. If the issue persists, submit an issue on GitHub.
 
-> Warning: A console window may briefly appear while launching Minecraft. This is normal and is used to start the Java process.
+If the game fails to start:
+
+* Try downloading the version again.
+* Verify that the correct Java installation is selected.
+* If the issue persists, open an issue on GitHub.
+
+> A console window may briefly appear while Minecraft is starting. This is expected behavior.
 
 ---
 
-## Troubleshooting
+# Troubleshooting
 
-### Common Issues
+## Java Not Found
 
-#### Java Errors
+Ensure Java is installed and available, then open **Settings → Java** and select the correct Java executable.
 
-Ensure Java is installed and available in your system PATH.
+---
 
-Alternatively, open **Settings → Java** and manually select your Java executable.
+## Authentication Issues
 
-#### Authentication Issues
-
-Delete the following files and restart the launcher:
+Delete the following files and restart MCL:
 
 ```text
 offline_account.json
 player.json
 ```
 
-#### Launcher Crashes After Game Exit
+---
 
-This issue has been patched since version 1.1.0
+## Launcher Crashes
 
-#### Random Launcher Crashes
+Running MCL directly from an IDE such as VS Code or PyCharm may occasionally cause resource conflicts.
 
-If you are running MCL directly from an IDE such as VS Code or PyCharm, resource conflicts may occur.
+For testing, it is recommended to run MCL from:
 
-For best results, run the launcher from:
-
+* Command Prompt
 * Windows PowerShell
-* Command Prompt (CMD)
+* Windows Terminal
 
 ---
 
-## Development
+# Development
 
-### Development Environment Setup
-
-You may use VS Code or PyCharm for development.
+Install development dependencies:
 
 ```bash
-python -m venv .venv
-
-.venv\Scripts\activate
-
 pip install -r requirements-dev.txt
 ```
 
----
-
-## Contributing
-
-Coming soon.
+Contributions are welcome.
 
 ---
 
-## License
+# License
 
 This project is licensed under the MIT License.
 
@@ -195,18 +185,6 @@ See the `LICENSE` file for details.
 
 ---
 
-## Acknowledgments
+# Disclaimer
 
-* Minecraft and Mojang for the game.
-* The Minecraft community for launcher-related resources and documentation.
-* Contributors to the Python Minecraft launcher ecosystem.
-
----
-
-## Support
-
-For bug reports, feature requests, and questions, please use the GitHub Issues page.
-
----
-
-**Disclaimer:** MCL is not affiliated with, endorsed by, or associated with Microsoft, Mojang, or Minecraft.
+MCL is an independent project and is **not affiliated with, endorsed by, or associated with Microsoft, Mojang, or Minecraft**.
