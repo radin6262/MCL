@@ -424,6 +424,12 @@ class UpdateDialog(QDialog):
             f'start "" "{current_exe}"'
         )
 
+        # Launch hidden cmd process (no .bat file written to disk)
+        subprocess.Popen(
+            ['cmd', '/c', cmd],
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+
 
 # ──────────────────────────────────────────────────────────────
 # CONVENIENCE FUNCTION (renamed to match your import)
