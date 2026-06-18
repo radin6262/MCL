@@ -26,7 +26,7 @@
 
 ### Python *(only required when running from source)*
 
-* Python **3.8** or newer
+* Python **3.10** or newer
 * **Python 3.14 is recommended**
 
 ### Java
