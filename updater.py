@@ -400,8 +400,8 @@ class UpdateDialog(QDialog):
     def _do_install(self):
         msg = QMessageBox(self)
         msg.setWindowTitle("Ready to Update")
-        msg.setText("The launcher will now close and update.")
-        msg.setInformativeText("It will restart automatically after the update.")
+        msg.setText("The updater will now close.")
+        msg.setInformativeText("Please Close the launcher and restart it after a few seconds.")
         msg.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
         msg.setDefaultButton(QMessageBox.Ok)
         msg.button(QMessageBox.Ok).setText("Continue Update")
@@ -412,23 +412,55 @@ class UpdateDialog(QDialog):
             self.accept()
 
     def _perform_update(self):
-        """Copy downloaded update over current exe and restart – no .bat file."""
-        current_exe = sys.executable
+        """Launch the updater helper, then exit."""
+        current_exe = os.path.abspath(sys.argv[0])  # ← change this line
         new_exe = self.download_path
 
-        # Build a single cmd command that waits, copies, cleans up, then restarts
-        cmd = (
-            f'timeout /t 5 /nobreak >nul && '
-            f'copy /Y "{new_exe}" "{current_exe}" && '
-            f'del "{new_exe}" && '
-            f'start "" "{current_exe}"'
-        )
+        # Try multiple possible locations for the updater
+        possible_updater_paths = [
+            # 1. Same directory as current executable (most common)
+            os.path.join(os.path.dirname(current_exe), "updater_script.exe"),
+            # 2. Current working directory
+            os.path.join(os.getcwd(), "updater_script.exe"),
+            # 3. In a subfolder named "updater"
+            os.path.join(os.path.dirname(current_exe), "updater", "updater_script.exe"),
+            # 4. In the temp directory (if extracted there)
+            os.path.join(tempfile.gettempdir(), "mcl_updater", "updater_script.exe"),
+        ]
 
-        # Launch hidden cmd process (no .bat file written to disk)
-        subprocess.Popen(
-            ['cmd', '/c', cmd],
-            creationflags=subprocess.CREATE_NO_WINDOW
-        )
+        updater_path = None
+        for path in possible_updater_paths:
+            if os.path.exists(path):
+                updater_path = path
+                break
+
+        if not updater_path:
+            # Show detailed error with all searched locations
+            error_msg = (
+                "updater_script.exe not found.\n\n"
+                "Searched locations:\n"
+                f"1. Executable directory: {os.path.dirname(current_exe)}\n"
+                f"2. Current working directory: {os.getcwd()}\n"
+                f"3. Updater subfolder: {os.path.join(os.path.dirname(current_exe), 'updater')}\n"
+                f"4. Temp folder: {os.path.join(tempfile.gettempdir(), 'mcl_updater')}\n\n"
+                "Please ensure updater_script.exe is placed in one of these locations."
+            )
+            QMessageBox.critical(self, "Error", error_msg)
+            return
+
+        # Launch updater with paths
+        try:
+            subprocess.Popen(
+                [updater_path, '--current', current_exe, '--update', new_exe],
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to launch updater:\n{str(e)}")
+            return
+
+        # Close the launcher now – the updater will handle the rest
+        self.accept()
+        QApplication.quit()
 
 
 # ──────────────────────────────────────────────────────────────
