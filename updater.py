@@ -412,23 +412,30 @@ class UpdateDialog(QDialog):
             self.accept()
 
     def _perform_update(self):
-        """Copy downloaded update over current exe and restart – no .bat file."""
+        """Launch hidden updater process, then close the launcher."""
         current_exe = sys.executable
         new_exe = self.download_path
 
-        # Build a single cmd command that waits, copies, cleans up, then restarts
+        # Use a loop that waits for the launcher process to exit (instead of fixed timeout)
+        # This is safer: it waits until the launcher releases the file.
         cmd = (
-            f'timeout /t 5 /nobreak >nul && '
+            f':loop\n'
+            f'tasklist /FI "IMAGENAME eq {os.path.basename(current_exe)}" 2>nul | '
+            f'find /I "{os.path.basename(current_exe)}" >nul && '
+            f'timeout /t 1 /nobreak >nul && goto loop\n'
             f'copy /Y "{new_exe}" "{current_exe}" && '
             f'del "{new_exe}" && '
             f'start "" "{current_exe}"'
         )
 
-        # Launch hidden cmd process (no .bat file written to disk)
         subprocess.Popen(
             ['cmd', '/c', cmd],
             creationflags=subprocess.CREATE_NO_WINDOW
         )
+
+        # Now exit the launcher immediately to release the file lock
+        self.accept()
+        QApplication.instance().quit()
 
 
 # ──────────────────────────────────────────────────────────────
