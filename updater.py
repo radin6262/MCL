@@ -6,6 +6,7 @@ import tempfile
 import shutil
 import subprocess
 import time
+import datetime
 from pathlib import Path
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtWidgets import (
@@ -14,8 +15,10 @@ from PySide6.QtWidgets import (
     QSizePolicy, QWidget, QFileDialog, QStackedWidget
 )
 from PySide6.QtGui import QPainter, QColor, QFont, QPen
+from PySide6.QtWidgets import QApplication  # needed for QApplication.instance()
 
 APP_VERSION = "1.0.0"
+
 # ──────────────────────────────────────────────────────────────
 # THEME
 # ──────────────────────────────────────────────────────────────
@@ -60,7 +63,7 @@ QProgressBar::chunk {
 """
 
 # ──────────────────────────────────────────────────────────────
-# SPINNER WIDGET (no setAlignment needed)
+# SPINNER WIDGET
 # ──────────────────────────────────────────────────────────────
 class SpinnerWidget(QWidget):
     def __init__(self, parent=None):
@@ -94,7 +97,6 @@ class SpinnerWidget(QWidget):
             painter.drawLine(12, 0, 25, 0)
             painter.restore()
         painter.end()
-
 
 # ──────────────────────────────────────────────────────────────
 # CHECKER THREAD
@@ -142,7 +144,6 @@ class UpdateChecker(QThread):
         except:
             return latest_version > self.current_version
 
-
 # ──────────────────────────────────────────────────────────────
 # DOWNLOADER THREAD
 # ──────────────────────────────────────────────────────────────
@@ -180,14 +181,14 @@ class UpdateDownloader(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
-
 # ──────────────────────────────────────────────────────────────
 # MAIN DIALOG
 # ──────────────────────────────────────────────────────────────
 class UpdateDialog(QDialog):
-    def __init__(self, parent=None, version_url=None, current_version=None):
+    def __init__(self, parent=None, version_url=None, current_version=None, updater_url=None):
         super().__init__(parent)
         self.version_url = version_url or "https://raw.githubusercontent.com/radin6262/MCL/main/version.json"
+        self.updater_url = updater_url or "https://raw.githubusercontent.com/radin6262/MCL/main/updater_script.exe"
         self.current_version = current_version or self._read_local_version()
         self.update_info = None
         self.download_path = None
@@ -201,15 +202,12 @@ class UpdateDialog(QDialog):
 
     def _is_compiled(self) -> bool:
         """Return True if running from a compiled executable."""
-        # PyInstaller
         if getattr(sys, 'frozen', False):
             return True
-        # Nuitka
         if getattr(sys, 'nuitka', False):
             return True
         if '__compiled__' in globals():
             return True
-        # cx_Freeze / py2exe
         if hasattr(sys, 'frozen') and sys.frozen:
             return True
         return False
@@ -217,24 +215,20 @@ class UpdateDialog(QDialog):
     def _read_local_version(self):
         return APP_VERSION
 
-    # ── stacked pages ──
     def _setup_stacked_pages(self):
         main_layout = QVBoxLayout(self)
         self.stack = QStackedWidget()
         main_layout.addWidget(self.stack)
 
-        # Page 0 – Checking
+        # Page 0 – checking
         page_check = QWidget()
         pc_layout = QVBoxLayout(page_check)
         pc_layout.addStretch()
-
-        # Spinner widget - alignment via layout, not widget
         spinner_container = QVBoxLayout()
         spinner_container.setAlignment(Qt.AlignCenter)
         self.spinner = SpinnerWidget()
         spinner_container.addWidget(self.spinner)
         pc_layout.addLayout(spinner_container)
-
         self.check_label = QLabel("Checking for updates…")
         self.check_label.setAlignment(Qt.AlignCenter)
         self.check_label.setStyleSheet("font-size: 14px; color: #a0e0a0; margin-top: 10px;")
@@ -242,7 +236,7 @@ class UpdateDialog(QDialog):
         pc_layout.addStretch()
         self.stack.addWidget(page_check)  # index 0
 
-        # Page 1 – Update available
+        # Page 1 – update available
         page_update = QWidget()
         pu_layout = QVBoxLayout(page_update)
         pu_layout.addStretch()
@@ -262,7 +256,7 @@ class UpdateDialog(QDialog):
         pu_layout.addStretch()
         self.stack.addWidget(page_update)  # index 1
 
-        # Page 2 – Download progress
+        # Page 2 – download progress
         page_dl = QWidget()
         pdl_layout = QVBoxLayout(page_dl)
         pdl_layout.addStretch()
@@ -280,7 +274,7 @@ class UpdateDialog(QDialog):
         pdl_layout.addStretch()
         self.stack.addWidget(page_dl)  # index 2
 
-        # Page 3 – Up to date
+        # Page 3 – up to date
         page_done = QWidget()
         pd_layout = QVBoxLayout(page_done)
         pd_layout.addStretch()
@@ -294,7 +288,7 @@ class UpdateDialog(QDialog):
         pd_layout.addStretch()
         self.stack.addWidget(page_done)  # index 3
 
-        # Page 4 – Error
+        # Page 4 – error
         page_err = QWidget()
         pe_layout = QVBoxLayout(page_err)
         pe_layout.addStretch()
@@ -409,46 +403,70 @@ class UpdateDialog(QDialog):
         msg.setStyleSheet(GREEN_DARK_STYLE)
         if msg.exec() == QMessageBox.Ok:
             self._perform_update()
-            self.accept()
 
-    def _perform_update(self):
-        """Launch the updater helper, then exit."""
-        current_exe = os.path.abspath(sys.argv[0])  # ← change this line
-        new_exe = self.download_path
-
-        # Try multiple possible locations for the updater
+    def _ensure_updater_exists(self):
+        """Ensure updater_script.exe exists, download if missing."""
+        current_exe = os.path.abspath(sys.argv[0])
         possible_updater_paths = [
-            # 1. Same directory as current executable (most common)
             os.path.join(os.path.dirname(current_exe), "updater_script.exe"),
-            # 2. Current working directory
             os.path.join(os.getcwd(), "updater_script.exe"),
-            # 3. In a subfolder named "updater"
             os.path.join(os.path.dirname(current_exe), "updater", "updater_script.exe"),
-            # 4. In the temp directory (if extracted there)
             os.path.join(tempfile.gettempdir(), "mcl_updater", "updater_script.exe"),
         ]
 
-        updater_path = None
         for path in possible_updater_paths:
             if os.path.exists(path):
-                updater_path = path
-                break
+                return path
 
-        if not updater_path:
-            # Show detailed error with all searched locations
-            error_msg = (
-                "updater_script.exe not found.\n\n"
-                "Searched locations:\n"
-                f"1. Executable directory: {os.path.dirname(current_exe)}\n"
-                f"2. Current working directory: {os.getcwd()}\n"
-                f"3. Updater subfolder: {os.path.join(os.path.dirname(current_exe), 'updater')}\n"
-                f"4. Temp folder: {os.path.join(tempfile.gettempdir(), 'mcl_updater')}\n\n"
-                "Please ensure updater_script.exe is placed in one of these locations."
+        # Not found – download
+        QMessageBox.information(
+            self,
+            "Downloading Updater",
+            "The updater helper is being downloaded. This only happens once."
+        )
+
+        temp_dir = Path(tempfile.gettempdir()) / "mcl_updater"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        updater_path = temp_dir / "updater_script.exe"
+
+        try:
+            response = requests.get(self.updater_url, timeout=30)
+            response.raise_for_status()
+            with open(updater_path, 'wb') as f:
+                f.write(response.content)
+            if updater_path.stat().st_size > 0:
+                return str(updater_path)
+            else:
+                raise ValueError("Downloaded file is empty")
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Updater Download Failed",
+                f"Failed to download updater helper:\n{str(e)}\n\n"
+                f"Please download it manually from:\n{self.updater_url}"
             )
-            QMessageBox.critical(self, "Error", error_msg)
+            return None
+
+    def _perform_update(self):
+        """Launch updater helper, then exit."""
+        current_exe = os.path.abspath(sys.argv[0])
+        new_exe = self.download_path
+
+        updater_path = self._ensure_updater_exists()
+        if not updater_path:
             return
 
-        # Launch updater with paths
+        # Write debug log
+        try:
+            log_path = Path(os.getcwd()) / "ud_launcher.log"
+            with open(log_path, "a", encoding="utf-8") as f:
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{timestamp}] Launching updater: {updater_path}\n")
+                f.write(f"[{timestamp}] Current: {current_exe}\n")
+                f.write(f"[{timestamp}] Update: {new_exe}\n")
+        except Exception:
+            pass  # Non‑critical
+
         try:
             subprocess.Popen(
                 [updater_path, '--current', current_exe, '--update', new_exe],
@@ -458,15 +476,17 @@ class UpdateDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Failed to launch updater:\n{str(e)}")
             return
 
-        # Close the launcher now – the updater will handle the rest
+        # Force quit the entire application
         self.accept()
-        QApplication.quit()
-
+        app = QApplication.instance()
+        if app:
+            app.quit()
+        else:
+            os._exit(0)
 
 # ──────────────────────────────────────────────────────────────
-# CONVENIENCE FUNCTION (renamed to match your import)
+# CONVENIENCE FUNCTION
 # ──────────────────────────────────────────────────────────────
 def check_updates(parent=None):
-    """Show the updater dialog. Returns after dialog is closed."""
     dlg = UpdateDialog(parent)
     dlg.exec()
