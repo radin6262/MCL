@@ -405,45 +405,57 @@ class UpdateDialog(QDialog):
             self._perform_update()
 
     def _ensure_updater_exists(self):
-        """Ensure updater_script.exe exists, download if missing."""
-        current_exe = os.path.abspath(sys.argv[0])
-        possible_updater_paths = [
-            os.path.join(os.path.dirname(current_exe), "updater_script.exe"),
-            os.path.join(os.getcwd(), "updater_script.exe"),
-            os.path.join(os.path.dirname(current_exe), "updater", "updater_script.exe"),
-            os.path.join(tempfile.gettempdir(), "mcl_updater", "updater_script.exe"),
-        ]
+        """Ensure updater_script.exe exists in current directory, download if missing."""
+        # First, check if updater exists in current directory
+        cwd = Path(os.getcwd())
+        updater_path = cwd / "updater_script.exe"
 
-        for path in possible_updater_paths:
-            if os.path.exists(path):
-                return path
+        # Also check in the same directory as the launcher executable
+        launcher_dir = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
+        launcher_updater_path = launcher_dir / "updater_script.exe"
 
-        # Not found – download
+        # Check current directory first (most likely where user wants it)
+        if updater_path.exists():
+            return str(updater_path)
+
+        # Check launcher directory
+        if launcher_updater_path.exists():
+            return str(launcher_updater_path)
+
+        # Not found – download to current directory
         QMessageBox.information(
             self,
             "Downloading Updater",
-            "The updater helper is being downloaded. This only happens once."
+            f"The updater helper is being downloaded to:\n{cwd}\n\nThis only happens once."
         )
-
-        temp_dir = Path(tempfile.gettempdir()) / "mcl_updater"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        updater_path = temp_dir / "updater_script.exe"
 
         try:
             response = requests.get(self.updater_url, timeout=30)
             response.raise_for_status()
+
+            # Download to current working directory
             with open(updater_path, 'wb') as f:
                 f.write(response.content)
+
+            # Verify download
             if updater_path.stat().st_size > 0:
+                # Make sure it's executable (important for Unix-like systems if porting)
+                try:
+                    os.chmod(updater_path, 0o755)  # rwxr-xr-x
+                except:
+                    pass  # Windows doesn't need chmod
+
                 return str(updater_path)
             else:
                 raise ValueError("Downloaded file is empty")
+
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "Updater Download Failed",
                 f"Failed to download updater helper:\n{str(e)}\n\n"
-                f"Please download it manually from:\n{self.updater_url}"
+                f"Please download it manually from:\n{self.updater_url}\n\n"
+                f"And place it in:\n{cwd}"
             )
             return None
 
