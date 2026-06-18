@@ -5,7 +5,7 @@ import json
 import platform
 import threading
 import time
-
+import updater
 import requests
 import uuid as py_uuid
 from pathlib import Path
@@ -16,11 +16,10 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QProgressBar, QComboBox, QStackedWidget, QButtonGroup,
                                QCheckBox, QSpinBox, QFileDialog, QGroupBox, QFormLayout,
                                QSlider, QScrollArea, QFrame)
-from PySide6.QtCore import Qt, QThread, Signal, QByteArray, QSize
+from PySide6.QtCore import QTimer, Qt, QThread, Signal, QByteArray, QSize
 from PySide6.QtGui import QFont, QIcon, QPixmap
 from offline import OfflineAuthProvider
 from launcher import GameLauncher
-
 
 # Inline SVGs
 PLAY_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
@@ -447,6 +446,10 @@ class MinecraftLauncherGUI(QMainWindow):
                 padding: 0 5px;
             }
         """)
+
+        # start updater
+        QTimer.singleShot(0, lambda: auto_check(self))
+
 
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -1045,6 +1048,9 @@ class MinecraftLauncherGUI(QMainWindow):
 
     def _reset_ram_to_default(self):
         self.ram_slider.setValue(4096)
+
+def auto_check(self):
+        updater.check_updates(parent=self)
 
 
 def main():

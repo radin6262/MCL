@@ -5,23 +5,104 @@ import requests
 import tempfile
 import shutil
 import subprocess
-import threading
 import time
 from pathlib import Path
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QProgressBar, QMessageBox, QSpacerItem,
-    QSizePolicy, QWidget
+    QSizePolicy, QWidget, QFileDialog, QStackedWidget
 )
+from PySide6.QtGui import QPainter, QColor, QFont, QPen
+
+APP_VERSION = "1.0.0"
+# ──────────────────────────────────────────────────────────────
+# THEME
+# ──────────────────────────────────────────────────────────────
+GREEN_DARK_STYLE = """
+QDialog, QMessageBox {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+}
+QLabel {
+    color: #e0e0e0;
+    background: transparent;
+}
+QPushButton {
+    background-color: #1e2e1e;
+    color: #a0e0a0;
+    border: 1px solid #2a4a2a;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton:hover {
+    background-color: #2a3f2a;
+    border-color: #44c044;
+}
+QPushButton:pressed {
+    background-color: #182818;
+}
+QProgressBar {
+    border: 1px solid #2a4a2a;
+    background-color: #1a1a1a;
+    border-radius: 4px;
+    text-align: center;
+    color: #a0e0a0;
+    height: 22px;
+}
+QProgressBar::chunk {
+    background-color: #44c044;
+    border-radius: 3px;
+}
+"""
+
+# ──────────────────────────────────────────────────────────────
+# SPINNER WIDGET (no setAlignment needed)
+# ──────────────────────────────────────────────────────────────
+class SpinnerWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._angle = 0
+        self.setFixedSize(60, 60)
+        self.setStyleSheet("background: transparent;")
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._rotate)
+        self._timer.start(50)
+
+    def _rotate(self):
+        self._angle = (self._angle + 10) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor("#44c044"))
+        pen.setWidth(4)
+        painter.setPen(pen)
+        painter.translate(self.width() / 2, self.height() / 2)
+        painter.rotate(self._angle)
+        for i in range(8):
+            painter.save()
+            painter.rotate(i * 45)
+            if i == 0:
+                painter.setOpacity(1.0)
+            else:
+                painter.setOpacity(0.15 + 0.85 * (1 - i / 8))
+            painter.drawLine(12, 0, 25, 0)
+            painter.restore()
+        painter.end()
 
 
+# ──────────────────────────────────────────────────────────────
+# CHECKER THREAD
+# ──────────────────────────────────────────────────────────────
 class UpdateChecker(QThread):
-    """Background thread to check for updates"""
     update_found = Signal(dict)
     no_update = Signal()
     error = Signal(str)
-    progress = Signal(str)
 
     def __init__(self, version_url, current_version):
         super().__init__()
@@ -30,60 +111,44 @@ class UpdateChecker(QThread):
 
     def run(self):
         try:
-            self.progress.emit("Checking for updates...")
-            # fetch version info
             response = requests.get(self.version_url, timeout=10)
             response.raise_for_status()
-
-            # ---- BULLETPROOF BOM HANDLING ----
             try:
-                # 1. Try direct .json() – handles correct encoding automatically
-                latest_info = response.json()
+                data = response.json()
             except (json.JSONDecodeError, UnicodeDecodeError):
-                # 2. Decode with utf-8-sig to strip BOM, then clean aggressively
                 content = response.content.decode('utf-8-sig', errors='ignore')
-                # Remove any leftover BOM character and null bytes
                 content = content.strip().replace('\ufeff', '').replace('\x00', '')
-                latest_info = json.loads(content)
-            # ---------------------------------
+                data = json.loads(content)
 
-            latest_version = latest_info.get("version")
-            if not latest_version:
-                raise ValueError("Missing 'version' key in update JSON")
+            latest = data.get("version")
+            if not latest:
+                raise ValueError("Missing 'version' key")
 
-            if self.is_newer_version(latest_version):
-                self.update_found.emit(latest_info)
+            if self._is_newer(latest):
+                self.update_found.emit(data)
             else:
                 self.no_update.emit()
-
         except Exception as e:
-            # Debug info in console
-            if 'response' in dir() and hasattr(response, 'text'):
-                print(f"BOM DEBUG – raw response: {repr(response.text[:300])}")
-            self.error.emit(f"Failed to check for updates: {str(e)}")
+            self.error.emit(str(e))
 
-    def is_newer_version(self, latest_version):
-        """Compare version strings (simple numeric comparison)"""
+    def _is_newer(self, latest_version):
         try:
-            # Convert versions to tuples of integers
-            current_parts = list(map(int, self.current_version.split('.')))
-            latest_parts = list(map(int, latest_version.split('.')))
-
-            # Pad with zeros if needed
-            max_len = max(len(current_parts), len(latest_parts))
-            current_parts += [0] * (max_len - len(current_parts))
-            latest_parts += [0] * (max_len - len(latest_parts))
-
-            return latest_parts > current_parts
+            cur = list(map(int, self.current_version.split('.')))
+            lat = list(map(int, latest_version.split('.')))
+            max_len = max(len(cur), len(lat))
+            cur += [0] * (max_len - len(cur))
+            lat += [0] * (max_len - len(lat))
+            return lat > cur
         except:
-            # Fallback: string comparison
             return latest_version > self.current_version
 
 
+# ──────────────────────────────────────────────────────────────
+# DOWNLOADER THREAD
+# ──────────────────────────────────────────────────────────────
 class UpdateDownloader(QThread):
-    """Background thread to download update"""
-    progress = Signal(int, str)  # percentage, status
-    finished = Signal(str)  # downloaded file path
+    progress = Signal(int, str)
+    finished = Signal(str)
     error = Signal(str)
 
     def __init__(self, download_url):
@@ -92,343 +157,263 @@ class UpdateDownloader(QThread):
 
     def run(self):
         try:
-            # Create temp directory
             temp_dir = Path(tempfile.gettempdir()) / "mcl_updater"
             temp_dir.mkdir(parents=True, exist_ok=True)
+            dl_path = temp_dir / "update.exe"
 
-            download_path = temp_dir / "update.exe"
-
-            self.progress.emit(0, "Starting download...")
-
-            # Stream download with progress
+            self.progress.emit(0, "Starting download…")
             response = requests.get(self.download_url, stream=True, timeout=30)
             response.raise_for_status()
 
             total_size = int(response.headers.get('content-length', 0))
             downloaded = 0
-
-            with open(download_path, 'wb') as f:
+            with open(dl_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
-
                         if total_size > 0:
-                            percent = int((downloaded / total_size) * 100)
-                            self.progress.emit(percent, f"Downloading... {percent}%")
-
+                            pct = int((downloaded / total_size) * 100)
+                            self.progress.emit(pct, f"Downloading… {pct}%")
             self.progress.emit(100, "Download complete!")
-            self.finished.emit(str(download_path))
-
+            self.finished.emit(str(dl_path))
         except Exception as e:
-            self.error.emit(f"Download failed: {str(e)}")
+            self.error.emit(str(e))
 
 
+# ──────────────────────────────────────────────────────────────
+# MAIN DIALOG
+# ──────────────────────────────────────────────────────────────
 class UpdateDialog(QDialog):
-    """Dialog for update confirmation and progress"""
-
-    def __init__(self, parent=None, update_info=None):
+    def __init__(self, parent=None, version_url=None, current_version=None):
         super().__init__(parent)
-        self.update_info = update_info
-        self.downloaded_path = None
-        self.setup_ui()
+        self.version_url = version_url or "https://raw.githubusercontent.com/radin6262/MCL/main/version.json"
+        self.current_version = current_version or self._read_local_version()
+        self.update_info = None
+        self.download_path = None
+        self._is_script = not getattr(sys, 'frozen', False)
 
-    def setup_ui(self):
-        self.setWindowTitle("Update Available")
-        self.setFixedSize(400, 300)
+        self._setup_stacked_pages()
+        self.setStyleSheet(GREEN_DARK_STYLE)
+        self.setWindowTitle("Launcher Updater")
+        self.setFixedSize(480, 340)
+        self._start_check()
 
-        layout = QVBoxLayout()
+    def _read_local_version(self):
+        return APP_VERSION
 
-        # Title
-        title = QLabel("An update is available!")
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
+    # ── stacked pages ──
+    def _setup_stacked_pages(self):
+        main_layout = QVBoxLayout(self)
+        self.stack = QStackedWidget()
+        main_layout.addWidget(self.stack)
 
-        # Version info
-        if self.update_info:
-            version_label = QLabel(f"Version {self.update_info.get('version', '')}")
-            version_label.setAlignment(Qt.AlignCenter)
-            layout.addWidget(version_label)
+        # Page 0 – Checking
+        page_check = QWidget()
+        pc_layout = QVBoxLayout(page_check)
+        pc_layout.addStretch()
 
-            changelog = QLabel(self.update_info.get('changelog', ''))
-            changelog.setWordWrap(True)
-            changelog.setAlignment(Qt.AlignCenter)
-            layout.addWidget(changelog)
+        # Spinner widget - alignment via layout, not widget
+        spinner_container = QVBoxLayout()
+        spinner_container.setAlignment(Qt.AlignCenter)
+        self.spinner = SpinnerWidget()
+        spinner_container.addWidget(self.spinner)
+        pc_layout.addLayout(spinner_container)
 
-        layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        self.check_label = QLabel("Checking for updates…")
+        self.check_label.setAlignment(Qt.AlignCenter)
+        self.check_label.setStyleSheet("font-size: 14px; color: #a0e0a0; margin-top: 10px;")
+        pc_layout.addWidget(self.check_label)
+        pc_layout.addStretch()
+        self.stack.addWidget(page_check)  # index 0
 
-        # Buttons
-        button_layout = QHBoxLayout()
+        # Page 1 – Update available
+        page_update = QWidget()
+        pu_layout = QVBoxLayout(page_update)
+        pu_layout.addStretch()
+        self.update_title = QLabel()
+        self.update_title.setStyleSheet("font-size: 18px; color: #ffffff; font-weight: bold;")
+        self.update_title.setAlignment(Qt.AlignCenter)
+        pu_layout.addWidget(self.update_title)
+        self.update_desc = QLabel()
+        self.update_desc.setWordWrap(True)
+        self.update_desc.setAlignment(Qt.AlignCenter)
+        self.update_desc.setStyleSheet("color: #b0b0b0; margin: 10px 0;")
+        pu_layout.addWidget(self.update_desc)
+        self.download_btn = QPushButton("Download Update")
+        self.download_btn.setFixedWidth(200)
+        self.download_btn.clicked.connect(self._start_download)
+        pu_layout.addWidget(self.download_btn, 0, Qt.AlignCenter)
+        pu_layout.addStretch()
+        self.stack.addWidget(page_update)  # index 1
 
-        self.yes_btn = QPushButton("Yes, Update Now")
-        self.yes_btn.clicked.connect(self.start_update)
-        button_layout.addWidget(self.yes_btn)
+        # Page 2 – Download progress
+        page_dl = QWidget()
+        pdl_layout = QVBoxLayout(page_dl)
+        pdl_layout.addStretch()
+        dl_title = QLabel("Downloading…")
+        dl_title.setAlignment(Qt.AlignCenter)
+        dl_title.setStyleSheet("font-size: 16px; color: #a0e0a0;")
+        pdl_layout.addWidget(dl_title)
+        self.dl_progress = QProgressBar()
+        self.dl_progress.setRange(0, 100)
+        pdl_layout.addWidget(self.dl_progress)
+        self.dl_status = QLabel("Waiting…")
+        self.dl_status.setAlignment(Qt.AlignCenter)
+        self.dl_status.setStyleSheet("color: #b0b0b0;")
+        pdl_layout.addWidget(self.dl_status)
+        pdl_layout.addStretch()
+        self.stack.addWidget(page_dl)  # index 2
 
-        self.no_btn = QPushButton("No, Later")
-        self.no_btn.clicked.connect(self.reject)
-        button_layout.addWidget(self.no_btn)
+        # Page 3 – Up to date
+        page_done = QWidget()
+        pd_layout = QVBoxLayout(page_done)
+        pd_layout.addStretch()
+        up_to_date = QLabel("✓ You already have the latest version.")
+        up_to_date.setAlignment(Qt.AlignCenter)
+        up_to_date.setStyleSheet("font-size: 15px; color: #44c044;")
+        pd_layout.addWidget(up_to_date)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        pd_layout.addWidget(close_btn, 0, Qt.AlignCenter)
+        pd_layout.addStretch()
+        self.stack.addWidget(page_done)  # index 3
 
-        layout.addLayout(button_layout)
+        # Page 4 – Error
+        page_err = QWidget()
+        pe_layout = QVBoxLayout(page_err)
+        pe_layout.addStretch()
+        self.err_label = QLabel()
+        self.err_label.setAlignment(Qt.AlignCenter)
+        self.err_label.setWordWrap(True)
+        self.err_label.setStyleSheet("color: #ff6b6b; font-size: 13px;")
+        pe_layout.addWidget(self.err_label)
+        retry_btn = QPushButton("Retry")
+        retry_btn.clicked.connect(lambda: self._start_check())
+        pe_layout.addWidget(retry_btn, 0, Qt.AlignCenter)
+        pe_layout.addStretch()
+        self.stack.addWidget(page_err)  # index 4
 
-        self.setLayout(layout)
+    # ── State transitions ──
+    def _start_check(self):
+        self.stack.setCurrentIndex(0)
+        self.check_label.setText("Checking for updates…")
+        self.checker = UpdateChecker(self.version_url, self.current_version)
+        self.checker.update_found.connect(self._on_update_found)
+        self.checker.no_update.connect(self._on_no_update)
+        self.checker.error.connect(self._on_check_error)
+        self.checker.start()
 
-    def start_update(self):
-        """Start the update download process"""
-        # Hide confirmation buttons
-        self.yes_btn.hide()
-        self.no_btn.hide()
+    def _on_update_found(self, info):
+        self.update_info = info
+        ver = info.get("version", "?")
+        changelog = info.get("changelog", "")
+        self.update_title.setText(f"Version {ver} available")
+        self.update_desc.setText(changelog if changelog else "A new version is ready.")
+        self.stack.setCurrentIndex(1)
 
-        # Show progress bar
-        self.progress_bar = QProgressBar()
-        self.progress_label = QLabel("Preparing download...")
-        self.progress_label.setAlignment(Qt.AlignCenter)
+    def _on_no_update(self):
+        self.stack.setCurrentIndex(3)
 
-        layout = self.layout()
-        layout.insertWidget(layout.count() - 1, self.progress_label)
-        layout.insertWidget(layout.count() - 1, self.progress_bar)
+    def _on_check_error(self, err):
+        self.err_label.setText(f"Update check failed:\n{err}")
+        self.stack.setCurrentIndex(4)
 
-        # Start download
-        self.downloader = UpdateDownloader(self.update_info['download_url'])
-        self.downloader.progress.connect(self.on_download_progress)
-        self.downloader.finished.connect(self.on_download_finished)
-        self.downloader.error.connect(self.on_download_error)
+    def _start_download(self):
+        if self._is_script:
+            if not self._script_warning():
+                return
+        url = self.update_info.get("download_url")
+        if not url:
+            QMessageBox.warning(self, "Error", "No download URL provided.")
+            return
+        self.stack.setCurrentIndex(2)
+        self.dl_progress.setValue(0)
+        self.dl_status.setText("Starting download…")
+        self.downloader = UpdateDownloader(url)
+        self.downloader.progress.connect(self._on_dl_progress)
+        self.downloader.finished.connect(self._on_dl_finished)
+        self.downloader.error.connect(self._on_dl_error)
         self.downloader.start()
 
-    def on_download_progress(self, percent, status):
-        self.progress_bar.setValue(percent)
-        self.progress_label.setText(status)
+    def _script_warning(self):
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Script Detected")
+        msg.setIcon(QMessageBox.Warning)
+        msg.setText("You are running this program as a Python script.")
+        msg.setInformativeText(
+            "Automatic updates only work with the compiled executable.\n\n"
+            "If you continue, the new .exe will be downloaded to a location you choose.\n"
+            "You must replace the old launcher manually."
+        )
+        msg.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
+        msg.setDefaultButton(QMessageBox.Cancel)
+        msg.button(QMessageBox.Ok).setText("Continue (Download .exe)")
+        msg.button(QMessageBox.Cancel).setText("Cancel")
+        msg.setStyleSheet(GREEN_DARK_STYLE)
+        return msg.exec() == QMessageBox.Ok
 
-    def on_download_finished(self, file_path):
-        self.downloaded_path = file_path
-        self.show_final_confirmation()
+    def _on_dl_progress(self, pct, status):
+        self.dl_progress.setValue(pct)
+        self.dl_status.setText(status)
 
-    def on_download_error(self, error_msg):
-        QMessageBox.critical(self, "Download Error", error_msg)
-        self.reject()
+    def _on_dl_finished(self, file_path):
+        self.download_path = file_path
+        if self._is_script:
+            save_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save the new launcher",
+                str(Path.home() / "Downloads" / "launcher_update.exe"),
+                "Executable (*.exe)"
+            )
+            if save_path:
+                shutil.copy2(file_path, save_path)
+                QMessageBox.information(
+                    self, "Download Complete",
+                    f"Saved to:\n{save_path}\n\nReplace your old launcher manually."
+                )
+            else:
+                QMessageBox.warning(self, "Cancelled", "File was not saved.")
+            self.accept()
+        else:
+            self._do_install()
 
-    def show_final_confirmation(self):
-        """Show final confirmation before restart"""
+    def _on_dl_error(self, err):
+        QMessageBox.critical(self, "Download Error", err)
+        self.stack.setCurrentIndex(1)
+
+    def _do_install(self):
         msg = QMessageBox(self)
         msg.setWindowTitle("Ready to Update")
-        msg.setText("To continue the update, we need to close this application.")
-        msg.setInformativeText("The application will restart automatically after the update.")
+        msg.setText("The launcher will now close and update.")
+        msg.setInformativeText("It will restart automatically after the update.")
         msg.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
         msg.setDefaultButton(QMessageBox.Ok)
         msg.button(QMessageBox.Ok).setText("Continue Update")
-        msg.button(QMessageBox.Cancel).setText("Cancel Update")
+        msg.button(QMessageBox.Cancel).setText("Cancel")
+        msg.setStyleSheet(GREEN_DARK_STYLE)
+        if msg.exec() == QMessageBox.Ok:
+            self._perform_update()
+            self.accept()
 
-        result = msg.exec()
+    def _perform_update(self):
+        """Copy downloaded update over current exe and restart – no .bat file."""
+        current_exe = sys.executable
+        new_exe = self.download_path
 
-        if result == QMessageBox.Ok:
-            self.create_update_batch()
-            self.accept()  # Close dialog and trigger update
-        else:
-            self.reject()
-
-    def create_update_batch(self):
-        """Create batch file to handle update"""
-        current_exe = sys.executable if hasattr(sys, 'frozen') else sys.argv[0]
-        current_dir = Path(current_exe).parent
-
-        # Create batch file content
-        batch_content = f"""@echo off
-chcp 65001 >nul
-echo Updating launcher...
-timeout /t 2 /nobreak >nul
-
-REM Wait for main process to close
-:waitloop
-tasklist /FI "IMAGENAME eq {Path(current_exe).name}" 2>nul | find /I "{Path(current_exe).name}" >nul
-if %ERRORLEVEL%==0 (
-    timeout /t 1 /nobreak >nul
-    goto waitloop
-)
-
-REM Copy new version
-copy "{self.downloaded_path}" "{current_exe}" /Y
-
-REM Cleanup
-del "{self.downloaded_path}" >nul 2>&1
-del "%~f0" >nul 2>&1
-
-REM Restart
-start "" "{current_exe}"
-"""
-
-        batch_path = current_dir / "updatehelper.bat"
-        with open(batch_path, 'w', encoding='utf-8') as f:
-            f.write(batch_content)
-
-        return batch_path
+        # Build a single cmd command that waits, copies, cleans up, then restarts
+        cmd = (
+            f'timeout /t 5 /nobreak >nul && '
+            f'copy /Y "{new_exe}" "{current_exe}" && '
+            f'del "{new_exe}" && '
+            f'start "" "{current_exe}"'
+        )
 
 
-class Updater:
-    """Main updater class"""
-
-    def __init__(self, parent=None):
-        self.parent = parent
-        self.current_version = self._get_local_version()
-        self.version_url = "https://raw.githubusercontent.com/radin6262/MCL/main/version.json"
-
-    def _get_local_version(self):
-        """
-        Read current version from a plain text file named 'version'
-        (no extension) in the application directory.
-        """
-        try:
-            # Determine base path (works for both script and frozen exe)
-            if hasattr(sys, 'frozen'):
-                base_path = Path(sys.executable).parent
-            else:
-                base_path = Path(__file__).parent
-
-            version_file = base_path / "version"  # Plain text file, no .json extension
-            if version_file.exists():
-                # Read as binary to handle BOM properly
-                with open(version_file, 'rb') as f:
-                    raw = f.read()
-                # Strip UTF-8 BOM if present
-                if raw.startswith(b'\xef\xbb\xbf'):
-                    raw = raw[3:]
-                version = raw.decode('utf-8', errors='ignore').strip()
-                if version:
-                    print(f"Local version: {version}")
-                    return version
-            else:
-                print(f"Local version file not found at {version_file}, using default 1.0.0")
-        except Exception as e:
-            print(f"Error reading local version file: {e}")
-
-        return "1.0.0"  # Fallback default
-
-    def check_for_updates(self, silent=False):
-        """Check for updates and show dialog if found"""
-        self.checker = UpdateChecker(self.version_url, self.current_version)
-
-        if not silent:
-            # Show checking dialog
-            self.checking_dialog = QDialog(self.parent)
-            self.checking_dialog.setWindowTitle("Checking for Updates")
-            self.checking_dialog.setFixedSize(300, 100)
-
-            layout = QVBoxLayout()
-            layout.addWidget(QLabel("Checking for updates..."))
-
-            spinner = QLabel("⏳")
-            spinner.setAlignment(Qt.AlignCenter)
-            spinner.setStyleSheet("font-size: 48px;")
-            layout.addWidget(spinner)
-
-            self.checking_dialog.setLayout(layout)
-            self.checking_dialog.show()
-
-        # Connect signals
-        self.checker.update_found.connect(lambda info: self.on_update_found(info, silent))
-        self.checker.no_update.connect(lambda: self.on_no_update(silent))
-        self.checker.error.connect(lambda err: self.on_check_error(err, silent))
-
-        self.checker.start()
-
-    def on_update_found(self, update_info, silent):
-        """Handle when update is found"""
-        if hasattr(self, 'checking_dialog'):
-            self.checking_dialog.close()
-
-        if not silent:
-            dialog = UpdateDialog(self.parent, update_info)
-            if dialog.exec() == QDialog.Accepted:
-                self.perform_update(dialog.downloaded_path)
-        else:
-            # In silent mode, just return the update info
-            return update_info
-
-    def on_no_update(self, silent):
-        """Handle when no update is found"""
-        if hasattr(self, 'checking_dialog'):
-            self.checking_dialog.close()
-
-        if not silent:
-            QMessageBox.information(self.parent, "Up to Date",
-                                    "You're running the latest version!")
-
-    def on_check_error(self, error_msg, silent):
-        """Handle check error"""
-        if hasattr(self, 'checking_dialog'):
-            self.checking_dialog.close()
-
-        if not silent:
-            QMessageBox.warning(self.parent, "Update Check Failed", error_msg)
-
-    def perform_update(self, downloaded_path):
-        """Execute the update process"""
-        if not downloaded_path:
-            return
-
-        batch_path = self.create_update_batch(downloaded_path)
-
-        # Launch batch file
-        try:
-            subprocess.Popen(['cmd', '/c', str(batch_path)],
-                             creationflags=subprocess.CREATE_NO_WINDOW)
-
-            # Close application
-            if self.parent:
-                self.parent.close()
-            else:
-                sys.exit(0)
-
-        except Exception as e:
-            QMessageBox.critical(None, "Update Error",
-                                 f"Failed to start update: {str(e)}")
-
-    def create_update_batch(self, downloaded_path):
-        """Create batch file for update"""
-        current_exe = sys.executable if hasattr(sys, 'frozen') else sys.argv[0]
-        current_dir = Path(current_exe).parent
-
-        batch_content = f"""@echo off
-chcp 65001 >nul
-echo Waiting for launcher to close...
-timeout /t 3 /nobreak >nul
-
-:waitloop
-tasklist /FI "IMAGENAME eq {Path(current_exe).name}" 2>nul | find /I "{Path(current_exe).name}" >nul
-if not errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto waitloop
-)
-
-echo Updating...
-copy "{downloaded_path}" "{current_exe}" /Y
-
-REM Cleanup
-del "{downloaded_path}" >nul 2>&1
-del "%~f0" >nul 2>&1
-
-echo Restarting...
-start "" "{current_exe}"
-"""
-
-        batch_path = current_dir / "updatehelper.bat"
-        with open(batch_path, 'w', encoding='utf-8') as f:
-            f.write(batch_content)
-
-        return batch_path
-
-
-# Convenience function for main.py
-def check_updates(parent=None, silent=False):
-    """Simple function to check for updates"""
-    updater = Updater(parent)
-    return updater.check_for_updates(silent)
-
-
-# For testing
-if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication(sys.argv)
-    updater = Updater()
-    updater.check_for_updates()
-    sys.exit(app.exec())
+# ──────────────────────────────────────────────────────────────
+# CONVENIENCE FUNCTION (renamed to match your import)
+# ──────────────────────────────────────────────────────────────
+def check_updates(parent=None):
+    """Show the updater dialog. Returns after dialog is closed."""
+    dlg = UpdateDialog(parent)
+    dlg.exec()
