@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from PySide6.QtWidgets import QApplication  # needed for QApplication.instance()
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.2.0"
 
 # ──────────────────────────────────────────────────────────────
 # THEME
@@ -394,8 +394,8 @@ class UpdateDialog(QDialog):
     def _do_install(self):
         msg = QMessageBox(self)
         msg.setWindowTitle("Ready to Update")
-        msg.setText("The updater will now close.")
-        msg.setInformativeText("Please Close the launcher and restart it after a few seconds.")
+        msg.setText("The updater will now close to continue the update.")
+        msg.setInformativeText("after the launcher closes wait a couple of seconds. after the update is done the launcher will automatically start.")
         msg.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
         msg.setDefaultButton(QMessageBox.Ok)
         msg.button(QMessageBox.Ok).setText("Continue Update")
