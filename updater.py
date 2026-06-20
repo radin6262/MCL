@@ -395,7 +395,7 @@ class UpdateDialog(QDialog):
         msg = QMessageBox(self)
         msg.setWindowTitle("Ready to Update")
         msg.setText("The updater will now close to continue the update.")
-        msg.setInformativeText("after the launcher closes wait a couple of seconds. after the update is done the launcher will automatically start.")
+        msg.setInformativeText("the launcher will close now. the update window is getting launched.")
         msg.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
         msg.setDefaultButton(QMessageBox.Ok)
         msg.button(QMessageBox.Ok).setText("Continue Update")
