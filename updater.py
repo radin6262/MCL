@@ -188,7 +188,7 @@ class UpdateDialog(QDialog):
     def __init__(self, parent=None, version_url=None, current_version=None, updater_url=None):
         super().__init__(parent)
         self.version_url = version_url or "https://raw.githubusercontent.com/radin6262/MCL/main/version.json"
-        self.updater_url = updater_url or "https://github.com/radin6262/MCL-updater/releases/download/v1.0.0/updater_script.exe"
+        self.updater_url = updater_url or "https://github.com/radin6262/MCL-updater/releases/download/v1.1/updater_script.exe"
         self.current_version = current_version or self._read_local_version()
         self.update_info = None
         self.download_path = None
