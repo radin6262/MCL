@@ -1,7 +1,7 @@
 {
-  "version": "1.2.1",
-  "download_url": "https://github.com/radin6262/MCL/releases/download/v1.1-St/MCL-1.1.exe",
-  "changelog": "Bug Fixes And Made sure windows defender doesn't flag this app.",
+  "version": "1.2.0",
+  "download_url": "https://github.com/radin6262/MCL/releases/download/v1.2/MCL-v1.2.exe",
+  "changelog": "Bug fixes and improvements and most of all... Added a new updater",
   "release_date": "2026-06-15",
   "min_version": "1.0.0"
 }
